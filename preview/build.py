@@ -26,6 +26,12 @@ def _inline_url(m):
 body = re.sub(r'url\((/brand/[^)]+\.png)\)', _inline_url, body)
 # SVG <image href> (the hub mark on the site board)
 body = re.sub(r'href="(/brand/[^"]+\.png)"', lambda m: _inline(m).replace('src=', 'href=', 1), body)
+# the 3D roadmap's textures and posters (also referenced from the island's data-tex JSON)
+def _inline_rm(m):
+    f = ROOT / "public" / m.group(0).lstrip("/")
+    mime = "image/webp" if f.suffix == ".webp" else "image/png"
+    return f"data:{mime};base64,{base64.b64encode(f.read_bytes()).decode()}" if f.exists() else m.group(0)
+body = re.sub(r"/roadmap/[a-z_-]+\.(?:webp|png)", _inline_rm, body)
 # the intro video, poster and captions travel inside the single-file preview (720p keeps it light)
 _v = ROOT / "public/video"
 _mp4 = "data:video/mp4;base64," + base64.b64encode((_v / "shellkore-intro-720.mp4").read_bytes()).decode()

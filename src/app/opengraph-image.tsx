@@ -20,7 +20,7 @@ export default async function OG() {
     (
       <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 72, background: "linear-gradient(180deg,#EEF1F2 0%,#F7F6F2 55%,#FCE3CC 100%)", fontFamily: "sans-serif", position: "relative" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <img src={mark} width={64} height={56} alt="" />
+          <img src={mark} width={60} height={64} alt="" />
           <div style={{ fontSize: 38, fontWeight: 700, color: "#16150F", letterSpacing: -1 }}>Shellkore</div>
           <div style={{ marginLeft: 16, fontSize: 20, color: "#B4561B", background: "#FDE9D7", padding: "8px 18px", borderRadius: 999 }}>Waitlist open</div>
         </div>

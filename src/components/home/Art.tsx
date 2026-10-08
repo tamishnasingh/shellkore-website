@@ -22,7 +22,7 @@ export const I = {
 
 export function Mark({ size = 24 }: { size?: number }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return <img className="logo-mark" src="/brand/shellkore-mark.png" alt="" width={Math.round(size * (294 / 256))} height={size} decoding="async" />;
+  return <img className="logo-mark" src="/brand/shellkore-mark.png" alt="" width={Math.round(size * (302 / 320))} height={size} decoding="async" />;
 }
 
 /** A city skyline at dawn, with cranes: the site that never sleeps. */

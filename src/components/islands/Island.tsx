@@ -15,15 +15,18 @@ const LOADERS = {
   calc: () => import("@/islands/calc"),
   city: () => import("@/islands/city"),
   sites: () => import("@/islands/sites"),
-  plan3d: () => import("@/islands/plan3d"),
   intro: () => import("@/islands/intro"),
   mark3d: () => import("@/islands/mark3d"),
+  roadmap: () => import("@/islands/roadmap"),
+  hero3d: () => import("@/islands/hero3d"),
+  toolkit: () => import("@/islands/toolkit"),
 } as const;
 
-type Props = { name: keyof typeof LOADERS; as?: "div" | "section" | "ol" | "ul"; className?: string; id?: string; children?: React.ReactNode; html?: string };
+type Props = { name: keyof typeof LOADERS; as?: "div" | "section" | "ol" | "ul"; className?: string; id?: string; children?: React.ReactNode; html?: string; data?: Record<string, string> };
 
 /** Server-rendered markup, enhanced in the browser by a small framework-free module. */
-export function Island({ name, as = "div", className, id, children, html }: Props) {
+export function Island({ name, as = "div", className, id, children, html, data }: Props) {
+  const attrs = Object.fromEntries(Object.entries(data ?? {}).map(([k, v]) => [`data-${k}`, v]));
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     let off: (() => void) | undefined, dead = false;
@@ -32,8 +35,8 @@ export function Island({ name, as = "div", className, id, children, html }: Prop
   }, [name]);
   const Tag = as as "div";
   return html !== undefined ? (
-    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name} dangerouslySetInnerHTML={{ __html: html }} />
+    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name} {...attrs} dangerouslySetInnerHTML={{ __html: html }} />
   ) : (
-    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name}>{children}</Tag>
+    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name} {...attrs}>{children}</Tag>
   );
 }

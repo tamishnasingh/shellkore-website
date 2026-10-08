@@ -1,12 +1,13 @@
 import { getContent } from "@/lib/content";
+import { DEFAULTS } from "@/lib/defaults";
 import { WaitlistForm } from "@/components/WaitlistForm";
 import { CopyButton } from "@/components/CopyButton";
 import { chart, compute, inr, ringDash, PERIODS, PRESETS, SLIDERS, type Inputs } from "@/islands/calc";
 import { SiteBoard } from "@/components/home/SiteBoard";
-import { draw as drawPlan } from "@/islands/plan3d";
-import { SkylineMotion } from "@/components/home/SkylineMotion";
 import { Island } from "@/components/islands/Island";
-import { I, Mark, Skyline, RoomSketch, WhoArt, Sparkline, Operator } from "@/components/home/Art";
+import { Toolkit } from "@/components/home/Toolkit";
+import { Promises, ContactHub, Ecosystem, Crews, Maintenance } from "@/components/home/Services";
+import { I, Mark, Skyline, RoomSketch, WhoArt, Sparkline } from "@/components/home/Art";
 
 export const revalidate = 300;
 
@@ -38,13 +39,65 @@ const LEDGER: [string, string][] = [
 ];
 const TENET_ICONS = [I.layers, I.shield, I.spark];
 
+/* ---- 3D construction roadmap: textures, the callout pinned to the building, and a product card per phase */
+const RM_TEX = Object.fromEntries(
+  ["concrete", "concrete_n", "soil", "soil_n", "brick", "brick_n", "grass", "grass_n", "asphalt", "asphalt_n", "ply"].map((k) => [k, `/roadmap/${k}.webp`]),
+) as Record<string, string>;
+RM_TEX.blob = "/roadmap/blob.png";
+const RM_CALLOUTS = ["Grid A–E / 1–4 set out", "Twin · 1,284 BOQ lines", "Raft · M30 · 186 m³", "Slab poured today", "Brickwork L4 · GRN matched", "Curtain wall · RA bill #4", "Handover · 21.7% margin"];
+const RM_WIDGETS: React.ReactNode[] = [
+  <div key="0" className="rw rw-takeoff">
+    <div className="rw-h"><span className="rw-ai">{I.spark}</span><b>AI takeoff</b><small>A-101 → A-109</small></div>
+    <ul>
+      <li><span>Concrete M30</span><b>1,920 m³</b></li>
+      <li><span>Steel Fe550D</span><b>212 t</b></li>
+      <li><span>Brickwork 230 mm</span><b>4,860 m²</b></li>
+    </ul>
+    <div className="rw-f"><span>1,284 BOQ lines priced</span><b>₹18.4 Cr</b></div>
+  </div>,
+  <div key="1" className="rw rw-wa">
+    <div className="rw-h"><span className="rw-av">{I.wa}</span><b>Lakeside Developers</b><small>WhatsApp · Client</small></div>
+    <div className="rw-msg"><span>EST-2291 · Tower B</span><b>₹18.40 Cr</b></div>
+    <div className="rw-ok">Approved {I.dcheck}</div>
+  </div>,
+  <div key="2" className="rw rw-po">
+    <div className="rw-h"><span className="rw-ic">{I.truck}</span><b>PO-7781</b><small>UltraTech OPC 53 · 2,400 bags</small></div>
+    <ol className="rw-steps"><li className="is-done">Ordered</li><li className="is-done">Delivered</li><li className="is-now">Billed</li></ol>
+    <div className="rw-f"><span>Matched to GRN-0412 and bill</span><b>₹9.8 L</b></div>
+  </div>,
+  <div key="3" className="rw rw-prog">
+    <div className="rw-h"><span className="rw-ic">{I.camera}</span><b>Site log · today</b><small>46 crew · 18 photos</small></div>
+    <ul>
+      <li><span>Level 6 slab</span><i style={{ ["--w" as string]: "100%" }} /><b>100%</b></li>
+      <li><span>Level 7 columns</span><i style={{ ["--w" as string]: "62%" }} /><b>62%</b></li>
+      <li><span>Steel used vs BOQ</span><i style={{ ["--w" as string]: "48%" }} /><b>−2.1%</b></li>
+    </ul>
+  </div>,
+  <div key="4" className="rw rw-co">
+    <div className="rw-h"><span className="rw-ic">{I.doc}</span><b>CO-014</b><small>Extra powder room, L3</small></div>
+    <div className="rw-msg"><span>Priced from your rates</span><b>+₹1.86 L</b></div>
+    <div className="rw-ok">Client approved {I.dcheck}</div>
+  </div>,
+  <div key="5" className="rw rw-inv">
+    <div className="rw-h"><span className="rw-ic">{I.rupee}</span><b>RA Bill #4</b><small>From measured progress</small></div>
+    <div className="rw-msg"><span>Raised · paid in 3 days</span><b>₹2.40 Cr</b></div>
+    <div className="rw-meter"><i style={{ ["--w" as string]: "68%" }} /><span>68% of contract billed</span></div>
+  </div>,
+  <div key="6" className="rw rw-pl">
+    <svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="40" r="32" className="t" /><circle cx="40" cy="40" r="32" className="v" pathLength={100} strokeDasharray="21.7 100" /></svg>
+    <div><small>Project margin, live</small><b>21.7%</b><span>Revenue ₹18.4 Cr · Cost ₹14.4 Cr</span></div>
+  </div>,
+];
+
 export default async function Home() {
   const c = await getContent();
-  const { hero, platform, steps, product, why, who, faq, cta, settings, calculator, sites } = c;
+  const { hero, platform, steps, product, why, who, faq, cta, settings, calculator, sites, promise, contact, ecosystem, crews, maintenance, tools } = c;
   const assume = { timePct: num(calculator.estimateTimeSavedPct, 60, 0, 95), leakPct: num(calculator.leakageRecoveredPct, 50, 0, 95), hourly: num(calculator.hourlyCost, 600, 0, 100000) };
   const calc0 = compute(Object.fromEntries(SLIDERS.map((x) => [x.key, x.def])) as Inputs, assume, 12);
   const chart0 = chart(calc0.costToday / 12, calc0.costAfter / 12, 12);
   const lines = splitTitle(hero.title);
+  // seven roadmap phases; older saved content with fewer steps is filled from the defaults
+  const rmItems = DEFAULTS.steps.items.slice(0, 7).map((d, i) => steps.items[i] ?? d);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -58,73 +111,32 @@ export default async function Home() {
     <Island name="reveal">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
 
-      {/* ============ HERO ============ */}
-      <section className="hero">
-        <div className="dawn" aria-hidden="true" />
-        <div className="wrap hero-copy">
-          {/* desktop: placed against the hero; phones: sits on the ground line just under the operator logos */}
-          <Island name="city" className="city"><SkylineMotion /></Island>
-          <div className="mark3d" style={{ ["--logo" as string]: "url(/brand/shellkore-mark.png)" }}>
-            <Island name="mark3d" className="mk-stage">
-              <div className="mk-tilt">
-                <div className="mk-rot">
-                  <div className="mk-rot2">
-                    {/* pre-shaded side slices: plain images, so turning the logo only moves finished pictures */}
-                    {Array.from({ length: 10 }, (_, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img key={i} className="mk-l" src={`/brand/mark-side-${i < 3 ? "a" : i < 6 ? "b" : "c"}.png`} alt="" aria-hidden="true" width={294} height={256} decoding="async" style={{ ["--d" as string]: i + 1 }} />
-                    ))}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img className="mk-front" src="/brand/shellkore-mark.png" alt="Shellkore" width={294} height={256} fetchPriority="high" />
-                    <span className="mk-sheen" aria-hidden="true"><i /></span>
-                  </div>
-                </div>
-              </div>
-            </Island>
-            <span className="mk-shadow" aria-hidden="true" />
-          </div>
-          {hero.pill && (
-            <Island name="intro" className="intro-wrap">
-              <a className="pill" href={hero.pillLink || "/blog"} data-intro-open aria-haspopup="dialog" style={{ animation: "fade .8s var(--ease) both" }}>
-                <b>New</b>{hero.pill}
-                <span className="pill-play" aria-hidden="true"><svg viewBox="0 0 16 16" width="10" height="10"><path d="M4.5 2.8v10.4L13 8z" fill="currentColor" /></svg>Watch · 0:20</span>
-              </a>
-              <dialog className="intro" aria-label="Video: ERP Easy is now Shellkore">
-                <div className="intro-frame">
-                  <video controls playsInline preload="none" poster="/video/shellkore-intro-poster.jpg">
-                    <source src="/video/shellkore-intro.mp4" type="video/mp4" />
-                    <source src="/video/shellkore-intro.webm" type="video/webm" />
-                    <track kind="captions" src="/video/shellkore-intro.en.vtt" srcLang="en" label="English" />
-                  </video>
-                  <div className="intro-end">
-                    <p>Founding members get early access and founding-member pricing.</p>
-                    <div>
-                      <a className="btn btn-solid" href="#waitlist" data-intro-join>Join the waitlist now</a>
-                      <button type="button" className="btn btn-line" data-intro-replay>Replay</button>
-                    </div>
-                  </div>
-                  <button type="button" className="intro-x" data-intro-close aria-label="Close video">
-                    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M4 4l8 8M12 4l-8 8" /></svg>
-                  </button>
-                </div>
-              </dialog>
-            </Island>
-          )}
+      {/* ============ HERO: full-bleed 3D, the finished tower with its digital twin ============ */}
+      <section className="hero h3" aria-label="Shellkore">
+        <Island name="hero3d" className="h3-stage" data={{ tex: JSON.stringify(RM_TEX) }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="h3-poster" src="/roadmap/hero-poster.webp" alt="" aria-hidden="true" fetchPriority="high" decoding="async" />
+          <canvas className="h3-canvas" aria-hidden="true" />
+          <div className="h3-veil" aria-hidden="true" />
+          <div className="h3-pin pin-scan" data-pin aria-hidden="true"><i /><span><b>AI takeoff</b><em data-h3-level>Level 4</em><small>BOQ synced</small></span></div>
+          <div className="h3-pin pin-top" data-pin aria-hidden="true"><i /><span><b>Lakeside Tower B</b><small>Handover in 12 days</small></span></div>
+          <div className="h3-pin pin-low" data-pin aria-hidden="true"><i /><span><small>Margin, live</small><b>21.7%</b></span></div>
+        </Island>
+        <div className="wrap h3-copy">
+          <span className="h3-kick"><i />Construction OS · Waitlist open</span>
           <h1>{lines.map((l, i) => <span className="l" key={i}><span>{l}</span></span>)}</h1>
           <p className="sub">{hero.subtitle}</p>
           <WaitlistForm note={hero.note} source="hero" joined />
           <div className="hero-meta">
-            <a href="#how">See how it works</a>
-            {hero.builtBy.length > 0 && (
-              <>
-                <span className="sep" aria-hidden="true" />
-                <span>Built by operators at</span>
-                <span className="ops">{hero.builtBy.map((b) => <Operator key={b} name={b} />)}</span>
-              </>
-            )}
+            <a href="#how">See how it's built<span aria-hidden="true"> →</span></a>
+            <span className="sep" aria-hidden="true" />
+            <a href="#tools">Try the BOQ calculator</a>
           </div>
         </div>
+        <a className="h3-scroll" href="#product" aria-label="Scroll down"><i /></a>
+      </section>
 
+      <section className="hero-after">
         <Island name="stage" className="wrap stage">
           <div className="stage3d">
           <div className="blueprint" aria-hidden="true" />
@@ -189,6 +201,10 @@ export default async function Home() {
           <div className="floor" aria-hidden="true" />
         </Island>
       </section>
+
+      {/* ============ PROMISES + ONE POINT OF CONTACT ============ */}
+      <Promises c={promise} />
+      <ContactHub c={contact} />
 
       {/* ============ PLATFORM / ECOSYSTEM ============ */}
       <section className="sec" id="platform">
@@ -264,88 +280,61 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ============ HOW IT WORKS ============ */}
-      <section className="sec" id="how" style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="sec-head rv">
-            <span className="kicker">How it works</span>
-            <h2>{steps.heading}</h2>
-            <p className="lede">{steps.lede}</p>
-          </div>
-          <Island name="plan3d" className="fp">
-            <div className="fp-steps">
-              {steps.items.slice(0, 4).map((st, i) => (
-                <article key={i} data-fp-step className={`fp-step${i === 0 ? " on" : ""}`}>
-                  <span className="fp-n">0{i + 1}</span>
-                  <span className="fp-k">{st.kicker}</span>
-                  <h3>{st.title}</h3>
-                  <p>{st.body}</p>
-                </article>
-              ))}
-            </div>
-            <div className="fp-sticky">
-              <div className="fp-vis" data-step="0" role="img" aria-label="A home floor plan that turns from a priced blueprint into a 3D model with rooms colour-coded by budget.">
-                <svg viewBox="0 0 560 440" aria-hidden="true">
-                  <defs><filter id="fpBlur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12" /></filter></defs>
-                  <g data-fp dangerouslySetInnerHTML={{ __html: drawPlan(0) }} />
-                </svg>
-
-                <div className="fp-ov ov-0" aria-hidden="true">
-                  <span className="fp-scan" />
-                  <div className="fp-card fp-bl">
-                    <small>Takeoff from plan · 4.2 sec</small>
-                    <b>₹3,36,400</b>
-                    <span>42 BOQ lines priced on your rate card</span>
-                  </div>
-                  <div className="fp-chip fp-tr"><i />Ceiling 640 sq ft · Floor 820 sq ft</div>
-                </div>
-
-                <div className="fp-ov ov-1" aria-hidden="true">
-                  <div className="fp-card fp-wa fp-tr">
-                    <div className="h"><span className="av">{I.wa}</span><div><b>Rohan Kulkarni</b><small>WhatsApp · Client</small></div></div>
-                    <div className="m"><span>EST-2291<em> · 3BHK interiors</em></span><b>₹18,40,000</b></div>
-                    <div className="r">Approved {I.dcheck}</div>
-                  </div>
-                  <div className="fp-chip fp-bl ok"><i />Synced to PRJ-318 · 11:42</div>
-                </div>
-
-                <div className="fp-ov ov-2" aria-hidden="true">
-                  <div className="fp-pipe">
-                    {[["Lead", "LD-1042"], ["Estimate", "EST-2291"], ["PO", "PO-7781 · Kitchen"], ["Invoice", "INV-0447"]].map(([k, v], i) => (
-                      <span key={k} className="fp-pill" style={{ ["--i" as string]: i }}><small>{k}</small>{v}</span>
-                    ))}
-                  </div>
-                  <div className="fp-chip fp-tr"><i />Kaveri Ply delivered to site</div>
-                </div>
-
-                <div className="fp-ov ov-3" aria-hidden="true">
-                  <div className="fp-card fp-tr fp-margin">
-                    <small>Projected margin</small>
-                    <b>21.7%</b>
-                    <span>₹4.0 L on an ₹18.4 L contract</span>
-                  </div>
-                  <div className="fp-legend fp-bl"><span><i className="ok" />On budget</span><span><i className="watch" />Watch</span><span><i className="over" />Over</span></div>
-                </div>
-
-                <div className="fp-dots" aria-hidden="true"><i /><i /><i /><i /></div>
-              </div>
-              {/* phones: the active step's words sit pinned under the plan and swap as you scroll */}
-              <div className="fp-cap" aria-hidden="true">
-                <div className="fp-bars">{[0, 1, 2, 3].map((n) => <i key={n} />)}</div>
-                <div className="fp-cap-stack">
-                  {steps.items.slice(0, 4).map((st, n) => (
-                    <div key={n} className={`fp-c c-${n}${n === 0 ? " on" : ""}`}>
-                      <span className="fp-k">0{n + 1} · {st.kicker}</span>
-                      <b>{st.title}</b>
-                      <p>{st.body}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </Island>
+      {/* ============ HOW IT WORKS: 3D construction roadmap ============ */}
+      <section className="rm" id="how" aria-label="How it works">
+        <div className="wrap sec-head rv">
+          <span className="kicker">How it works</span>
+          <h2>{steps.heading}</h2>
+          <p className="lede">{steps.lede}</p>
         </div>
+        <Island name="roadmap" className="rm-track" data={{ tex: JSON.stringify(RM_TEX) }}>
+          <div className="rm-stage">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="rm-poster" src="/roadmap/poster.webp" data-end="/roadmap/poster-end.webp" alt="" aria-hidden="true" decoding="async" loading="lazy" />
+            <canvas className="rm-canvas" aria-hidden="true" />
+            <div className="rm-shade" aria-hidden="true" />
+
+            <div className="rm-hud" aria-hidden="true">
+              <span className="rm-proj"><i />Lakeside Tower B · G+8</span>
+              <span className="rm-stat"><small>Timeline</small><b data-hud="day">Day 0</b></span>
+              <span className="rm-stat"><small>Built</small><b data-hud="pct">0%</b></span>
+              <span className="rm-stat"><small>Spent of ₹18.4 Cr</small><b data-hud="spent">₹0.0 Cr</b></span>
+            </div>
+            <span className="rm-bar" aria-hidden="true"><i data-hud="bar" /></span>
+
+            <ol className="rm-rail" aria-label="Project roadmap">
+              {rmItems.map((st, i) => (
+                <li key={i} className={i === 0 ? "on" : undefined}>
+                  <button type="button" data-go={i}><i /><span>{st.kicker}</span></button>
+                </li>
+              ))}
+            </ol>
+
+            <div className="rm-panel">
+              <div className="rm-count"><b data-rm-n>01</b><span>/ 0{rmItems.length}</span></div>
+              <div className="rm-stack">
+                {rmItems.map((st, i) => (
+                  <article key={i} className={`rm-ph${i === 0 ? " on" : ""}`} data-callout={RM_CALLOUTS[i]} aria-hidden={i !== 0}>
+                    <span className="rm-k">{st.kicker}</span>
+                    <h3>{st.title}</h3>
+                    <p>{st.body}</p>
+                    <div className="rm-w">{RM_WIDGETS[i]}</div>
+                  </article>
+                ))}
+              </div>
+            </div>
+
+            <div className="rm-callout" aria-hidden="true"><i /><span /></div>
+            <div className="rm-hint" aria-hidden="true">Scroll to build<i /></div>
+          </div>
+        </Island>
       </section>
+
+      {/* ============ FREE TOOLS, EVERYONE GAINS, CREWS, MAINTENANCE ============ */}
+      <Toolkit kicker={tools.kicker} heading={tools.heading} lede={tools.lede} note={tools.note} />
+      <Ecosystem c={ecosystem} />
+      <Crews c={crews} />
+      <Maintenance c={maintenance} />
 
       {/* ============ TOOLS MERGE ============ */}
       <section className="sec" id="replaces" style={{ paddingTop: 0 }}>

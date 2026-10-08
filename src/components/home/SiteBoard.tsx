@@ -113,7 +113,7 @@ export function SiteBoard({ sites }: { sites: Site[] }) {
           <g key="hub" className="hub">
             <Box x={0} y={0} w={1.8} d={1.8} h={0.35} build={false} />
             <ellipse className="hub-ring" cx={0} cy={iso(0, 0, 0.35)[1]} rx={U * 1.9} ry={U * 0.95} />
-            <image className="hub-mark" href="/brand/shellkore-mark.png" x={hx - 32} y={hy - 66} width={64} height={56} />
+            <image className="hub-mark" href="/brand/shellkore-mark.png" x={hx - 27} y={hy - 70} width={54} height={57} />
           </g>
         ) : (
           <g key={s.i} className="site" data-node={s.i} tabIndex={-1}>
