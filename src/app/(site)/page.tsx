@@ -65,11 +65,19 @@ export default async function Home() {
         <div className="wrap hero-copy">
           <div className="mark3d" style={{ ["--logo" as string]: "url(/brand/shellkore-mark.png)" }}>
             <Island name="mark3d" className="mk-stage">
-              <div className="mk-rot">
-                {Array.from({ length: 16 }, (_, i) => <span key={i} className="mk-l" style={{ ["--d" as string]: i + 1 }} aria-hidden="true" />)}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="mk-front" src="/brand/shellkore-mark.png" alt="Shellkore" width={294} height={256} />
-                <span className="mk-sheen" aria-hidden="true" />
+              <div className="mk-tilt">
+                <div className="mk-rot">
+                  <div className="mk-rot2">
+                    {/* pre-shaded side slices: plain images, so turning the logo only moves finished pictures */}
+                    {Array.from({ length: 10 }, (_, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} className="mk-l" src={`/brand/mark-side-${i < 3 ? "a" : i < 6 ? "b" : "c"}.png`} alt="" aria-hidden="true" width={294} height={256} decoding="async" style={{ ["--d" as string]: i + 1 }} />
+                    ))}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img className="mk-front" src="/brand/shellkore-mark.png" alt="Shellkore" width={294} height={256} fetchPriority="high" />
+                    <span className="mk-sheen" aria-hidden="true"><i /></span>
+                  </div>
+                </div>
               </div>
             </Island>
             <span className="mk-shadow" aria-hidden="true" />

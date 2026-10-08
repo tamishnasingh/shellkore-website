@@ -11,7 +11,9 @@ export function mount(root: HTMLElement): () => void {
     raf = 0;
     p += (target - p) * 0.12;
     if (Math.abs(target - p) < 0.001) p = target;
-    root.style.setProperty("--sp", p.toFixed(3));
+    // written straight to transform/opacity: nothing inside the drawing is re-styled
+    root.style.transform = `translate3d(0,${(p * 60).toFixed(1)}px,0)`;
+    root.style.opacity = (1 - p * 0.7).toFixed(3);
     if (p !== target) raf = requestAnimationFrame(frame);
   };
   const onScroll = () => {

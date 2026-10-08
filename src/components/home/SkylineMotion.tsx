@@ -52,6 +52,7 @@ export function SkylineMotion() {
   const sites = [front.filter((t) => t.x1 < W / 2).sort((a, b) => b.x1 - a.x1)[2], front.filter((t) => t.x0 > W / 2).sort((a, b) => a.x0 - b.x0)[2]].filter(Boolean) as Tower[];
 
   return (
+    <>
     <svg className="skm" viewBox={`0 0 ${W} 420`} preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <defs>
         <linearGradient id="skmFill" x1="0" x2="0" y1="0" y2="1">
@@ -89,7 +90,6 @@ export function SkylineMotion() {
             </g>
           );
         })}
-        {lit.map((w, i) => <rect key={i} x={w.x} y={w.y} width={8} height={10} rx={1} className="skm-win" style={{ ["--d" as string]: `${w.d}s` }} />)}
       </g>
 
       {/* tower cranes */}
@@ -103,11 +103,6 @@ export function SkylineMotion() {
             <path d={Array.from({ length: Math.floor((G - top) / 16) }, (_, k) => `M${mx - 4} ${G - k * 16}L${mx + 4} ${G - k * 16 - 16}`).join("")} pathLength={1} className="skm-floor sun" />
             <path d={`M${j0} ${top}H${j1}M${j0} ${top + 6}H${j1}M${mx} ${top - 24}L${j1 - side * 20} ${top}M${mx} ${top - 24}L${j0} ${top}`} pathLength={1} className="skm-line sun jib" />
             <rect x={j0 - (side > 0 ? 0 : 16)} y={top + 6} width={16} height={10} className="skm-cw" />
-            <g className="skm-trolley">
-              <rect x={mx + side * 60 - 5} y={top + 6} width={10} height={4} />
-              <line x1={mx + side * 60} y1={top + 10} x2={mx + side * 60} y2={top + 60} className="skm-cable" />
-              <rect x={mx + side * 60 - 7} y={top + 60} width={14} height={9} className="skm-load" />
-            </g>
           </g>
         );
       })}
@@ -124,5 +119,23 @@ export function SkylineMotion() {
       <path d={`M${W / 2} ${G}H0`} pathLength={1} className="skm-ground" />
       <path d={`M${W / 2} ${G}H${W}`} pathLength={1} className="skm-ground" />
     </svg>
+    {/* the only parts that keep moving live in their own small layer, so the big drawing never repaints */}
+    <svg className="skm skm-live" viewBox={`0 0 ${W} 420`} preserveAspectRatio="xMidYMax meet" aria-hidden="true">
+      {lit.map((w, i) => <rect key={i} x={w.x} y={w.y} width={8} height={10} rx={1} className="skm-win" style={{ ["--d" as string]: `${w.d}s` }} />)}
+      {sites.map((t, i) => {
+        const side = t.x1 < W / 2 ? -1 : 1;
+        const mx = side < 0 ? t.x0 + 14 : t.x1 - 14, top = t.top - 56;
+        return (
+          <g key={i} className="skm-crane" style={{ ["--d" as string]: `${1.6 + i * 0.25}s`, ["--dir" as string]: side }}>
+            <g className="skm-trolley">
+              <rect x={mx + side * 60 - 5} y={top + 6} width={10} height={4} />
+              <line x1={mx + side * 60} y1={top + 10} x2={mx + side * 60} y2={top + 60} className="skm-cable" />
+              <rect x={mx + side * 60 - 7} y={top + 60} width={14} height={9} className="skm-load" />
+            </g>
+          </g>
+        );
+      })}
+    </svg>
+    </>
   );
 }

@@ -109,10 +109,10 @@ select.field{appearance:none;-webkit-appearance:none;padding-right:38px;backgrou
 @keyframes sunrise{from{transform:translate(-50%,90px);opacity:0}}
 .skyline{position:absolute;left:0;right:0;top:clamp(520px,48vw,640px);height:180px;z-index:-1;opacity:.42;pointer-events:none;color:#C9BFAE}
 /* particle city: canvas over the static skyline, which stays as the no-WebGL / reduced-motion fallback */
-.city{position:absolute;left:0;right:0;top:clamp(220px,24vw,330px);height:clamp(300px,30vw,440px);z-index:-1;pointer-events:none;
-  transform:translateY(calc(var(--sp,0) * 60px));opacity:calc(1 - var(--sp,0) * .7)}
+.city{position:absolute;left:0;right:0;top:clamp(220px,24vw,330px);height:clamp(300px,30vw,440px);z-index:-1;pointer-events:none;will-change:transform,opacity;contain:layout paint}
 /* motion-graphics skyline: an architect's line drawing that draws itself in */
 .skm{position:absolute;left:0;right:0;bottom:0;width:100%;height:100%;overflow:visible}
+.skm-live{will-change:transform}
 /* keep a clear lane behind the headline, subtitle and form at every width */
 .city{-webkit-mask:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 330px),transparent calc(50% + 330px),#000 calc(50% + 470px),#000 100%);mask:linear-gradient(90deg,#000 0,#000 calc(50% - 470px),transparent calc(50% - 330px),transparent calc(50% + 330px),#000 calc(50% + 470px),#000 100%)}
 @media (max-width:760px){.city{-webkit-mask:none;mask:none}}
@@ -122,7 +122,8 @@ select.field{appearance:none;-webkit-appearance:none;padding-right:38px;backgrou
 .skm-fill{fill:url(#skmFill);opacity:0;animation:skmFade 1s calc(var(--d,0s) + .9s) ease forwards}
 .skm-floor{fill:none;stroke:rgba(22,21,15,.16);stroke-width:1;vector-effect:non-scaling-stroke;stroke-dasharray:1;stroke-dashoffset:1;animation:skmDraw 1.6s calc(var(--d,0s) + .7s) cubic-bezier(.6,.05,.25,1) forwards}
 .skm-floor.mull{stroke:rgba(22,21,15,.1)}
-.skm-win{fill:var(--sun);opacity:0;animation:skmWin 5s var(--d,3s) ease-in-out infinite}
+.skm-win{fill:var(--sun);opacity:0;animation:skmWinOn 1.4s var(--d,3s) ease forwards}
+@keyframes skmWinOn{to{opacity:.55}}
 @keyframes skmDraw{to{stroke-dashoffset:0}}
 @keyframes skmFade{to{opacity:1}}
 @keyframes skmWin{0%,100%{opacity:0}30%,70%{opacity:.75}}
@@ -149,21 +150,27 @@ select.field{appearance:none;-webkit-appearance:none;padding-right:38px;backgrou
 /* 3D SK mark above the headline: the real logo stacked in thin layers for a smooth, solid thickness */
 .mark3d{--h:clamp(92px,9.5vw,132px);position:relative;width:calc(var(--h) * 1.148);height:var(--h);margin:4px 0 2px;perspective:900px;
   animation:fade 1s .1s var(--ease) both}
-.mk-stage{position:absolute;inset:0;transform-style:preserve-3d;animation:mkIn 1.5s .15s var(--ease) both}
-.mk-rot{position:absolute;inset:0;transform-style:preserve-3d;transform:rotateX(var(--rx,4deg)) rotateY(var(--ry,-16deg))}
-.mk-l{position:absolute;inset:0;transform:translateZ(calc(var(--d) * var(--h) * -0.0105));
-  -webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat;
-  background:linear-gradient(150deg,#3D6577,#173341 55%,#0D1F28);filter:brightness(calc(1.05 - var(--d) * .035))}
-.mk-front{position:absolute;inset:0;width:100%;height:100%;transform:translateZ(.6px);filter:brightness(var(--lit,1)) saturate(1.05)}
-.mk-sheen{position:absolute;inset:0;transform:translateZ(1.2px);pointer-events:none;
-  -webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat;
-  background:linear-gradient(105deg,transparent 38%,rgba(255,255,255,.5) 48%,rgba(255,226,196,.45) 52%,transparent 62%) no-repeat;background-size:260% 100%;background-position:130% 0;
-  animation:opShine 5.5s 1.9s ease-in-out infinite}
-.mk-shadow{position:absolute;left:12%;right:12%;bottom:-16px;height:16px;border-radius:50%;background:radial-gradient(closest-side,rgba(20,40,55,.26),transparent);filter:blur(3px);animation:mkShadow 1.5s .15s var(--ease) both}
+.mk-stage,.mk-tilt,.mk-rot,.mk-rot2{position:absolute;inset:0;transform-style:preserve-3d}
+.mk-stage{animation:mkIn 1.5s .15s var(--ease) both}
+/* the sway runs as CSS animations (on the compositor, off the main thread); the pointer lean is a separate eased transform */
+.mk-tilt{transform:rotateX(var(--tx,0deg)) rotateY(var(--ty,0deg))}
+.mk-rot{transform:rotateY(-16deg);animation:mkSwayY 5.6s -2.8s ease-in-out infinite alternate}
+.mk-rot2{transform:rotateX(4deg);animation:mkSwayX 8.4s -4.2s ease-in-out infinite alternate}
+@keyframes mkSwayY{from{transform:rotateY(-22deg)}to{transform:rotateY(22deg)}}
+@keyframes mkSwayX{from{transform:rotateX(-6deg)}to{transform:rotateX(6deg)}}
+.mk-l{position:absolute;inset:0;width:100%;height:100%;transform:translateZ(calc(var(--d) * var(--h) * -0.0168));backface-visibility:hidden;pointer-events:none;user-select:none}
+.mk-front{position:absolute;inset:0;width:100%;height:100%;transform:translateZ(.6px)}
+.mk-sheen{position:absolute;inset:0;transform:translateZ(1.2px);pointer-events:none;overflow:hidden;
+  -webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat}
+.mk-sheen i{position:absolute;top:0;bottom:0;left:0;width:60%;background:linear-gradient(105deg,transparent 10%,rgba(255,255,255,.5) 46%,rgba(255,226,196,.45) 54%,transparent 90%);
+  transform:translateX(-120%);animation:mkShine 5.5s 1.9s ease-in-out infinite}
+@keyframes mkShine{0%{transform:translateX(-120%)}28%,100%{transform:translateX(220%)}}
+.mk-shadow{position:absolute;left:12%;right:12%;bottom:-16px;height:16px;border-radius:50%;background:radial-gradient(closest-side,rgba(20,40,55,.26),transparent);animation:mkShadow 1.5s .15s var(--ease) both}
 @keyframes mkIn{from{transform:rotateY(-75deg) rotateX(18deg) translateY(14px) scale(.86)}}
 @keyframes mkShadow{from{opacity:0;transform:scaleX(.5)}}
-@media (prefers-reduced-motion:reduce){.mk-stage,.mk-sheen,.mark3d{animation:none!important}}
-.pill{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 6px;border-radius:999px;background:rgba(255,255,255,.75);border:1px solid var(--rule);box-shadow:var(--sh-1);font-size:.86rem;text-decoration:none;color:var(--graphite);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:border-color .2s}
+.mk-stage.paused *,.mk-stage.paused{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){.op-sheen,.op-sheen i,.mk-stage,.mk-sheen i,.mark3d,.mk-rot,.mk-rot2{animation:none!important}}
+.pill{display:inline-flex;align-items:center;gap:10px;padding:5px 14px 5px 6px;border-radius:999px;background:rgba(255,255,255,.94);border:1px solid var(--rule);box-shadow:var(--sh-1);font-size:.86rem;text-decoration:none;color:var(--graphite);transition:border-color .2s}
 .pill:hover{border-color:#C9C4B8;color:var(--ink)}
 /* intro video: badge + player */
 .intro-wrap{display:contents}
@@ -205,15 +212,14 @@ html.intro-open{overflow:hidden}
 /* operator logos: rise in one by one, float slightly out of step, a sheen sweeps across each shape, lift on hover */
 .op.logo{position:relative;--i:0;animation:opIn .9s calc(.75s + var(--i)*.14s) var(--ease) both}
 .op.logo:nth-child(2){--i:1}.op.logo:nth-child(3){--i:2}.op.logo:nth-child(4){--i:3}
-.op.logo img{animation:opFloat 4.6s calc(var(--i)*-1.5s) ease-in-out infinite;transition:opacity .25s,transform .35s var(--ease),filter .35s}
-.op.logo::after{content:"";position:absolute;inset:0;pointer-events:none;
-  -webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat;
-  background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.7) 48%,rgba(255,232,206,.65) 52%,transparent 65%) no-repeat;background-size:250% 100%;background-position:130% 0;
-  animation:opShine 6s calc(2.2s + var(--i)*.35s) ease-in-out infinite, opFloat 4.6s calc(var(--i)*-1.5s) ease-in-out infinite}
-.op.logo:hover img{opacity:1;transform:translateY(-3px) scale(1.06);filter:drop-shadow(0 6px 10px rgba(22,21,15,.14))}
-@keyframes opIn{from{opacity:0;transform:translateY(10px);filter:blur(6px)}}
+.op.logo img{animation:opFloat 4.6s calc(var(--i)*-1.5s) ease-in-out infinite;transition:opacity .25s,transform .35s var(--ease)}
+.op-sheen{position:absolute;inset:0;pointer-events:none;overflow:hidden;animation:opFloat 4.6s calc(var(--i)*-1.5s) ease-in-out infinite;
+  -webkit-mask:var(--logo) center/contain no-repeat;mask:var(--logo) center/contain no-repeat}
+.op-sheen i{position:absolute;top:0;bottom:0;left:0;width:60%;background:linear-gradient(105deg,transparent 10%,rgba(255,255,255,.7) 46%,rgba(255,232,206,.65) 54%,transparent 90%);
+  transform:translateX(-120%);animation:mkShine 6s calc(2.2s + var(--i)*.35s) ease-in-out infinite}
+.op.logo:hover img{opacity:1;transform:translateY(-3px) scale(1.06)}
+@keyframes opIn{from{opacity:0;transform:translateY(10px)}}
 @keyframes opFloat{0%,100%{translate:0 0}50%{translate:0 -2.5px}}
-@keyframes opShine{0%{background-position:130% 0}28%,100%{background-position:-30% 0}}
 @media (prefers-reduced-motion:reduce){.op.logo,.op.logo img,.op.logo::after{animation:none!important}}
 .hero-meta .ops{gap:22px;align-items:center}
 .side-facts .who{align-items:center;gap:22px}
@@ -426,8 +432,9 @@ html.intro-open{overflow:hidden}
 .fp-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid rgba(22,21,15,.07);box-shadow:var(--sh-1);font-size:.76rem;font-weight:500;color:var(--graphite);white-space:nowrap}
 .fp-chip i{width:7px;height:7px;border-radius:50%;background:var(--sun);box-shadow:0 0 0 4px rgba(235,122,42,.16)}
 .fp-chip.ok i{background:var(--ok);box-shadow:0 0 0 4px rgba(46,139,87,.16)}
-.fp-scan{position:absolute;left:9%;right:9%;height:2px;top:16%;border-radius:2px;background:linear-gradient(90deg,transparent,var(--sun),transparent);box-shadow:0 0 14px 2px rgba(235,122,42,.45);animation:fpScan 3s ease-in-out infinite}
-@keyframes fpScan{0%,100%{top:16%}50%{top:80%}}
+.fp-scan{position:absolute;left:9%;right:9%;top:16%;height:64%;pointer-events:none;animation:scanY 3s ease-in-out infinite}
+.fp-scan::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,var(--sun),transparent);box-shadow:0 0 14px 2px rgba(235,122,42,.45)}
+@keyframes scanY{0%,100%{transform:translateY(0)}50%{transform:translateY(100%)}}
 .fp-wa{width:220px;padding:0;overflow:hidden;gap:0}
 .fp-wa .h{display:flex;gap:9px;align-items:center;padding:10px 12px;background:#EAF7EF}
 .fp-wa .h b{display:block;font-size:.8rem}.fp-wa .h small{font-size:.68rem}
@@ -462,7 +469,7 @@ html.intro-open{overflow:hidden}
   .fp-pipe{left:10px;right:10px;bottom:10px}.fp-pill{font-size:.66rem;padding:5px 8px}
   .fp-dots{display:none}
 }
-@media (prefers-reduced-motion:reduce){.fp-scan{animation:none;top:48%}}
+@media (prefers-reduced-motion:reduce){.fp-scan{animation:none;transform:translateY(50%)}}
 
 /* stage: app window + floating cards */
 .stage{position:relative;margin:clamp(44px,6vw,72px) auto 0;max-width:1120px;padding-bottom:clamp(64px,9vw,120px);perspective:2000px;perspective-origin:50% 0}
@@ -566,8 +573,8 @@ html.intro-open{overflow:hidden}
 .wa-reply svg{width:14px;height:14px;color:#34B7F1}
 .scan-photo{position:relative;height:120px;border-radius:10px;overflow:hidden;background:#EDE7DD}
 .scan-photo svg{position:absolute;inset:0;width:100%;height:100%}
-.scan-photo .line{position:absolute;left:0;right:0;height:2px;background:var(--sun);box-shadow:0 0 14px 3px rgba(235,122,42,.5);top:0;animation:scan 2.8s ease-in-out infinite}
-@keyframes scan{0%,100%{top:6%}50%{top:92%}}
+.scan-photo .line{position:absolute;left:0;right:0;top:6%;height:86%;pointer-events:none;animation:scanY 2.8s ease-in-out infinite}
+.scan-photo .line::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--sun);box-shadow:0 0 14px 3px rgba(235,122,42,.5)}
 .scan-res{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 4px 2px}
 .scan-res b{font-weight:600;font-variant-numeric:tabular-nums}
 .scan-res small{color:var(--muted);font-size:.72rem;display:block}

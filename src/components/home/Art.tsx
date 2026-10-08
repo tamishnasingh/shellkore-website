@@ -111,6 +111,7 @@ export function Operator({ name, height = 22 }: { name: string; height?: number 
     <span className="op logo" style={{ ["--logo" as string]: `url(${logo.src})` }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={logo.src} alt={name} title={name} width={Math.round((logo.w / logo.h) * h)} height={h} decoding="async" />
+      <span className="op-sheen" aria-hidden="true"><i /></span>
     </span>
   );
 }
