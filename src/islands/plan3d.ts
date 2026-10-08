@@ -160,12 +160,14 @@ export function mount(root: HTMLElement): () => void {
   const svg = root.querySelector<SVGGElement>("[data-fp]");
   const steps = Array.from(root.querySelectorAll<HTMLElement>("[data-fp-step]"));
   const vis = root.querySelector<HTMLElement>(".fp-vis");
+  const caps = Array.from(root.querySelectorAll<HTMLElement>(".fp-c"));
+  let shown = -1;
   if (!svg || steps.length < 4) return () => {};
   let target = 0, P = 0, raf = 0, lastDrawn = -1, visible = true;
 
   const measure = () => {
     // progress = which step's middle is nearest the reading line, continuous in between
-    const line = innerHeight * (innerWidth < 900 ? 0.72 : 0.5);
+    const line = innerHeight * (innerWidth <= 900 ? 0.75 : 0.5);
     const mids = steps.map((el) => { const b = el.getBoundingClientRect(); return b.top + b.height / 2; });
     if (line <= mids[0]) target = 0;
     else if (line >= mids[3]) target = 3;
@@ -175,12 +177,17 @@ export function mount(root: HTMLElement): () => void {
     raf = 0;
     P += (target - P) * 0.14;
     if (Math.abs(target - P) < 0.002) P = target;
-    if (Math.abs(P - lastDrawn) > 0.001) {
+    // redraw the plan only when it has visibly moved: keeps scrolling light on phones
+    if (Math.abs(P - lastDrawn) > (P === target ? 0 : 0.006)) {
       svg.innerHTML = draw(P);
       lastDrawn = P;
       const active = Math.min(3, Math.max(0, Math.round(P)));
       if (vis && vis.dataset.step !== String(active)) vis.dataset.step = String(active);
-      steps.forEach((el, i) => el.classList.toggle("on", i === active));
+      if (active !== shown) {
+        shown = active;
+        steps.forEach((el, i) => el.classList.toggle("on", i === active));
+        caps.forEach((el, i) => { el.classList.toggle("on", i === active); el.classList.toggle("past", i < active); });
+      }
     }
     if (P !== target && visible) raf = requestAnimationFrame(frame);
   };

@@ -1,8 +1,7 @@
 /**
  * Hero skyline as motion graphics: an architect's line drawing that draws itself in.
  * Back towers sketch in first in a light line, front towers in ink, then floor lines, a few windows
- * glow warm, two tower cranes work (trolley glides, hook rises and falls), a dimension marker measures
- * the tallest tower, and the ground line sweeps out from the centre. Pure SVG + CSS animation:
+ * glow warm, two tower cranes work (trolley glides, hook rises and falls), and the ground line sweeps out from the centre. Pure SVG + CSS animation:
  * no canvas, no images, nothing to download. Deterministic, so server and client render the same.
  */
 const W = 1440, G = 400; // drawing width, ground line
@@ -41,7 +40,6 @@ export function SkylineMotion() {
   const T = towers();
   const r = rng(7);
   const front = T.filter((t) => !t.back);
-  const tallest = front.reduce((a, b) => (b.top < a.top ? b : a), front[0]);
   // windows that glow: a handful, on front towers
   const lit: { x: number; y: number; d: number }[] = [];
   for (const t of front) {
@@ -106,14 +104,6 @@ export function SkylineMotion() {
           </g>
         );
       })}
-
-      {/* dimension marker on the tallest front tower */}
-      {tallest && (
-        <g className="skm-dim" transform={`translate(${tallest.x0 < W / 2 ? tallest.x1 + 18 : tallest.x0 - 18} 0)`}>
-          <path d={`M-5 ${tallest.top}H5M0 ${tallest.top}V${G}M-5 ${G}H5`} pathLength={1} />
-          <text x={tallest.x0 < W / 2 ? 8 : -8} y={(tallest.top + G) / 2} textAnchor={tallest.x0 < W / 2 ? "start" : "end"}>{((G - tallest.top) / 4.2).toFixed(1)} m</text>
-        </g>
-      )}
 
       {/* ground line sweeping out from the centre */}
       <path d={`M${W / 2} ${G}H0`} pathLength={1} className="skm-ground" />

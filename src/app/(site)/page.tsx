@@ -61,8 +61,9 @@ export default async function Home() {
       {/* ============ HERO ============ */}
       <section className="hero">
         <div className="dawn" aria-hidden="true" />
-        <Island name="city" className="city"><SkylineMotion /></Island>
         <div className="wrap hero-copy">
+          {/* desktop: placed against the hero; phones: sits on the ground line just under the operator logos */}
+          <Island name="city" className="city"><SkylineMotion /></Island>
           <div className="mark3d" style={{ ["--logo" as string]: "url(/brand/shellkore-mark.png)" }}>
             <Island name="mark3d" className="mk-stage">
               <div className="mk-tilt">
@@ -130,7 +131,7 @@ export default async function Home() {
           <div className="ghost g2" aria-hidden="true"><div className="g-chrome"><i /><i /><i /><span>app.shellkore.com/finance</span></div><div className="g-body"><div className="g-bars">{[38, 52, 46, 64, 58, 76, 70, 88].map((h, i) => <i key={i} style={{ height: `${h}%` }} />)}</div></div></div>
           <div className="ghost g1" aria-hidden="true"><div className="g-chrome"><i /><i /><i /><span>app.shellkore.com/procurement</span></div><div className="g-body"><div className="g-rows">{[0, 1, 2, 3, 4].map((i) => <i key={i} />)}</div></div></div>
           <div className="window" role="img" aria-label="The Shellkore app showing a sample project, Prestige Lakeside Tower B: contract value, committed costs, payments received, a 21.7% projected margin, its bill of quantities and a live activity feed.">
-            <div className="chrome" aria-hidden="true"><div className="dots"><i /><i /><i /></div><div className="url">{I.lock}app.shellkore.com/projects/prestige-lakeside</div><div style={{ width: 46 }} /></div>
+            <div className="chrome" aria-hidden="true"><div className="dots"><i /><i /><i /></div><div className="url">{I.lock}<span>app.shellkore.com/projects/prestige-lakeside</span></div><div style={{ width: 46 }} /></div>
             <div className="app" aria-hidden="true">
               <aside className="app-side">
                 <div className="ws"><span className="av">U</span>UX9 Interiors</div>
@@ -302,7 +303,7 @@ export default async function Home() {
                 <div className="fp-ov ov-1" aria-hidden="true">
                   <div className="fp-card fp-wa fp-tr">
                     <div className="h"><span className="av">{I.wa}</span><div><b>Rohan Kulkarni</b><small>WhatsApp · Client</small></div></div>
-                    <div className="m">EST-2291 · 3BHK interiors<b>₹18,40,000</b></div>
+                    <div className="m"><span>EST-2291 · 3BHK</span><b>₹18,40,000</b></div>
                     <div className="r">Approved {I.dcheck}</div>
                   </div>
                   <div className="fp-chip fp-bl ok"><i />Synced to PRJ-318 · 11:42</div>
@@ -327,6 +328,19 @@ export default async function Home() {
                 </div>
 
                 <div className="fp-dots" aria-hidden="true"><i /><i /><i /><i /></div>
+              </div>
+              {/* phones: the active step's words sit pinned under the plan and swap as you scroll */}
+              <div className="fp-cap" aria-hidden="true">
+                <div className="fp-bars">{[0, 1, 2, 3].map((n) => <i key={n} />)}</div>
+                <div className="fp-cap-stack">
+                  {steps.items.slice(0, 4).map((st, n) => (
+                    <div key={n} className={`fp-c c-${n}${n === 0 ? " on" : ""}`}>
+                      <span className="fp-k">0{n + 1} · {st.kicker}</span>
+                      <b>{st.title}</b>
+                      <p>{st.body}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </Island>
