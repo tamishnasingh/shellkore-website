@@ -1,0 +1,39 @@
+"use client";
+import { useEffect, useRef } from "react";
+
+// Each island is loaded on demand, so the page ships only the code it uses.
+const LOADERS = {
+  plan: () => import("@/islands/plan"),
+  journey: () => import("@/islands/journey"),
+  strike: () => import("@/islands/strike"),
+  reveal: () => import("@/islands/reveal"),
+  stage: () => import("@/islands/stage"),
+  orbit: () => import("@/islands/orbit"),
+  how: () => import("@/islands/how"),
+  tour: () => import("@/islands/tour"),
+  merge: () => import("@/islands/merge"),
+  calc: () => import("@/islands/calc"),
+  city: () => import("@/islands/city"),
+  sites: () => import("@/islands/sites"),
+  plan3d: () => import("@/islands/plan3d"),
+  intro: () => import("@/islands/intro"),
+  mark3d: () => import("@/islands/mark3d"),
+} as const;
+
+type Props = { name: keyof typeof LOADERS; as?: "div" | "section" | "ol" | "ul"; className?: string; id?: string; children?: React.ReactNode; html?: string };
+
+/** Server-rendered markup, enhanced in the browser by a small framework-free module. */
+export function Island({ name, as = "div", className, id, children, html }: Props) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    let off: (() => void) | undefined, dead = false;
+    LOADERS[name]().then((m) => { if (!dead && ref.current) off = m.mount(ref.current); });
+    return () => { dead = true; off?.(); };
+  }, [name]);
+  const Tag = as as "div";
+  return html !== undefined ? (
+    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name} dangerouslySetInnerHTML={{ __html: html }} />
+  ) : (
+    <Tag ref={ref as React.Ref<HTMLDivElement>} className={className} id={id} data-island={name}>{children}</Tag>
+  );
+}

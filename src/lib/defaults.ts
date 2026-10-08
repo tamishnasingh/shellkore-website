@@ -1,0 +1,183 @@
+/**
+ * Default site content. Every key here is editable from /admin/content.
+ * The admin editor is generated from the shape of these values, and saved edits must keep the same shape.
+ */
+export const DEFAULTS = {
+  settings: {
+    contactEmail: "core@techfnatic.com",
+    linkedin: "https://www.linkedin.com/company/techfnatic",
+    announcement: "",
+  },
+  hero: {
+    pill: "ERP Easy is now Shellkore",
+    pillLink: "/blog/erp-easy-is-now-shellkore",
+    title: "You can't be on every site, every drawing, every number at once.",
+    subtitle: "So we built the co-founder who can. It never sleeps.",
+    lede: "Shellkore runs your construction and interiors business from first lead to final invoice. Estimates, BOQs, procurement, approvals and project P&L live in one connected ledger.",
+    note: "Founding members get early access and founding-member pricing.",
+    builtBy: ["UX9", "Bricobrick", "SIE Detailers"],
+  },
+  platform: {
+    heading: "One connected operating system for the whole business.",
+    lede: "Every lead, estimate, PO and invoice lives in the same system. You stop running five disconnected apps and re-typing the same numbers into each one.",
+    liveModules: [
+      { name: "Leads", desc: "Capture and qualify enquiries" },
+      { name: "Estimates", desc: "BOQ to client-ready quote" },
+      { name: "Procurement", desc: "POs raised off the BOQ" },
+      { name: "Approvals", desc: "Sign-off on WhatsApp" },
+      { name: "Execution", desc: "Site progress and crews" },
+      { name: "Invoicing", desc: "Bills, payments, P&L" },
+    ],
+    soon: [
+      { name: "Marketplace", items: ["Materials", "Vendors", "Rentals"] },
+      { name: "Talent Hub", items: ["Skilled labour", "Crews", "Payroll"] },
+    ],
+    tenets: [
+      { label: "Ledger", title: "One connected ledger", body: "Every lead, estimate, PO and invoice lives in one system, not five disconnected apps." },
+      { label: "Control", title: "You approve everything", body: "Nothing moves to the next stage without your sign-off, right from WhatsApp." },
+      { label: "AI", title: "AI does the busywork", body: "Snap a site photo and get a priced BOQ back in seconds." },
+    ],
+    footer: "Bring your project data in and go live from day one.",
+  },
+  steps: {
+    heading: "Built for the way construction actually works.",
+    lede: "Four moments where Shellkore takes the busywork off your hands, each one feeding the next.",
+    items: [
+      { kicker: "Takeoff", title: "Turn site photos into a BOQ.", body: "Snap a photo on site, add a prompt, and get a priced bill of quantities in seconds." },
+      { kicker: "Approvals", title: "Approvals where clients already are.", body: "Estimates and change orders go straight to WhatsApp. Clients approve in a tap, with no logins." },
+      { kicker: "The flow", title: "One flow from lead to cash.", body: "A lead becomes an estimate, then a project. Every PO and invoice ties back to it automatically." },
+      { kicker: "Margin", title: "Real profit on every project, live.", body: "BOQ, procurement and payments roll up into project-wise P&L, updated as work happens." },
+    ],
+  },
+  product: {
+    heading: "Every part of the job, in one place.",
+    lede: "Four connected screens, one ledger. Each one flows into the next, the way your projects do.",
+    screens: [
+      { tab: "BOQ", title: "Priced BOQ in seconds", body: "A full bill of quantities, every line priced against your own material catalog." },
+      { tab: "Estimates", title: "Estimates clients approve", body: "Turn a BOQ into a client-ready quote they sign off in a tap, straight from WhatsApp." },
+      { tab: "Procurement", title: "Purchase orders from the BOQ", body: "Raise POs off the same line items, so procurement stays tied to the estimate and the job." },
+      { tab: "Finance", title: "Project P&L in real time", body: "Invoices, payments and project-wise profit that update as the work happens, not at month-end." },
+    ],
+  },
+  why: {
+    heading: "Every tool you juggle today becomes one connected system.",
+    lede: "Leads, BOQs, procurement, books and P&L each live in a different app today, and the same numbers get re-typed from one into the next. Shellkore replaces the stack with a single connected ledger.",
+    tools: [
+      { name: "WhatsApp", pain: "Approvals lost in chat threads" },
+      { name: "Excel", pain: "BOQs rebuilt for every revision" },
+      { name: "Tally", pain: "Books updated at month-end" },
+      { name: "Zoho", pain: "Quotes in a separate tool" },
+      { name: "HubSpot", pain: "Leads with no link to the job" },
+      { name: "SAP", pain: "Too heavy for site teams" },
+    ],
+    us: "Shellkore",
+    usNote: "One ledger, from the first enquiry to the final invoice.",
+  },
+  compare: {
+    heading: "Built for how you work, not how legacy software assumes you do.",
+    lede: "Most teams run on spreadsheets and chat, or on a generic ERP that was never designed for a site. Here is where Shellkore is different.",
+    colA: "Spreadsheets + WhatsApp",
+    colB: "Generic ERP",
+    rows: [
+      { label: "Quantity takeoff", a: "Measured by hand", b: "Measured by hand", us: "Priced BOQ from a site photo" },
+      { label: "Client approvals", a: "Buried in chat threads", b: "Client portal and logins", us: "One tap on WhatsApp" },
+      { label: "Estimate to PO to invoice", a: "Re-typed at every step", b: "Separate modules", us: "One connected ledger" },
+      { label: "Project profit", a: "Worked out at month-end", b: "Month-end reports", us: "Live, project by project" },
+      { label: "Built for", a: "Anything", b: "Any industry", us: "Construction and interiors" },
+      { label: "Getting started", a: "Already in use", b: "Lengthy rollout", us: "Live from day one" },
+    ],
+  },
+  who: {
+    heading: "Built for how you build.",
+    lede: "From first lead to final invoice, one connected flow for contractors, builders, owners and interior designers.",
+    items: [
+      { title: "Contractors", body: "Price jobs faster and stop leaking margin between site and office.", points: ["Photo-to-BOQ takeoffs", "Change orders on WhatsApp"] },
+      { title: "Builders", body: "Run multiple projects on one ledger and see every PO against its budget.", points: ["Multi-project P&L", "Vendor POs from the BOQ"] },
+      { title: "Owners", body: "Know your real profit on every project without waiting for month-end.", points: ["Live margin by project", "Approve from your phone"] },
+      { title: "Interior Designers", body: "Turn drawings and site photos into quotes clients sign off the same day.", points: ["Catalog-priced estimates", "Client approvals in a tap"] },
+    ],
+  },
+  faq: {
+    heading: "Questions, answered.",
+    intro: "Something else on your mind? Write to the team.",
+    items: [
+      { q: "What is Shellkore?", a: "An all-in-one operating system for construction and interior design businesses. Leads, estimates, BOQs, procurement, invoicing and project finances run in one connected flow." },
+      { q: "Who is Shellkore built for?", a: "Construction contractors, interior design studios and turnkey project companies that want to stop juggling spreadsheets, WhatsApp threads and five different apps." },
+      { q: "How does the photo-to-BOQ feature work?", a: "Snap a site photo and add a prompt. Shellkore generates a bill of quantities in seconds, priced against your own material catalog." },
+      { q: "Do my clients need to install anything to approve estimates?", a: "No. Estimates and change orders go straight to your client's WhatsApp. They approve in a tap, and the approval flows right back into the project." },
+      { q: "I used ERP Easy. What changes?", a: "ERP Easy is now Shellkore. Same team at Techfnatic Labs, same connected flow, now positioned as a full construction operating system." },
+      { q: "When does Shellkore launch?", a: "We're onboarding teams from the waitlist in batches. Founding members get early access and founding-member pricing." },
+      { q: "How do I move up the waitlist?", a: "After you join, you get a personal referral link. Every teammate or peer who joins with it moves you up 5 spots. You can also book a demo to see Shellkore on your own BOQ." },
+    ],
+  },
+  sites: {
+    heading: "Be on every site at once.",
+    lede: "Wherever your projects are, every approval, purchase order, photo and payment lands on the same ledger the moment it happens.",
+    note: "Sample workspace: one interiors team, eight live projects.",
+    items: [
+      { city: "Bengaluru", project: "Prestige Lakeside, Tower B", event: "Rohan approved EST-2291 on WhatsApp", time: "11:42" },
+      { city: "Mumbai", project: "Worli sea-face apartment", event: "PO-7790 raised from the BOQ, ₹1.4 L", time: "11:38" },
+      { city: "Pune", project: "Baner office fit-out", event: "14 site photos added by the supervisor", time: "11:31" },
+      { city: "Hyderabad", project: "Gachibowli villa", event: "INV-0452 paid, ₹6.2 L", time: "11:20" },
+      { city: "Ahmedabad", project: "SG Highway clinic", event: "Living room priced from one photo in 4.2 sec", time: "11:12" },
+      { city: "Delhi NCR", project: "Gurugram penthouse", event: "Projected margin up to 22.4%", time: "10:58" },
+      { city: "Chennai", project: "OMR showroom", event: "Change order CO-18 sent to the client", time: "10:47" },
+      { city: "Kochi", project: "Marine Drive café", event: "Laminates delivered to site", time: "10:30" },
+    ],
+  },
+  calculator: {
+    heading: "What is re-typing costing you?",
+    lede: "Set the sliders to match your business. See the hours and margin you could get back when estimates, purchase orders and invoices share one ledger.",
+    estimateTimeSavedPct: "60",
+    leakageRecoveredPct: "50",
+    hourlyCost: "600",
+    note: "An illustrative estimate from your inputs and the assumptions listed. It is not a quote or a guarantee.",
+  },
+  cta: {
+    heading: "Join the waitlist.",
+    lede: "We're onboarding construction and interiors teams in batches. Founding members get early access and founding-member pricing.",
+  },
+  about: {
+    heading: "We build software for people who build.",
+    lede: "Shellkore is made by Techfnatic Labs, with operators from UX9, Bricobrick and SIE Detailers who run construction, interiors and detailing work every day.",
+    body: "## Why Shellkore exists\n\nA construction or interiors business runs on hundreds of numbers that change every day: quantities, rates, purchase orders, approvals, payments. Most teams keep them in spreadsheets, chat threads and accounting software that never talk to each other, so the same figures get re-typed again and again, and the real profit on a job is only known at month-end.\n\nShellkore puts the whole job on one connected ledger, from the first lead to the final invoice.\n\n## From ERP Easy to Shellkore\n\nShellkore started life as ERP Easy. The new name reflects a bigger job: a full operating system for construction, with a Marketplace and Talent Hub on the way.\n\n## Talk to us\n\nWrite to the team any time. We read everything.",
+  },
+  terms: {
+    heading: "Terms of Service",
+    updated: "October 2026",
+    body: "These terms cover your use of the Shellkore website. Product terms will be shared with teams when they are onboarded.\n\n## Using this website\n\nYou may browse this site and join the waitlist. Don't attempt to disrupt the site, access the admin area, or submit automated or false information.\n\n## Waitlist\n\nJoining the waitlist does not guarantee access or a particular price. We onboard teams in batches at our discretion.\n\n## Assistant\n\nThe on-site assistant gives general information about Shellkore. Its answers may be incomplete; nothing it says is a contract, quote or professional advice.\n\n## Content\n\nProduct screens, sample projects and sample rates on this site are illustrative.\n\n## Contact\n\nQuestions about these terms: write to the team at the email address in the footer.",
+  },
+  privacy: {
+    heading: "Privacy Policy",
+    updated: "October 2026",
+    body: "This policy explains what the Shellkore website collects and why.\n\n## What we collect\n\n- **Waitlist:** your email address and, if you choose, your role and company. We use these only to contact you about Shellkore access.\n- **Referrals:** each signup gets a referral code. If you join through someone's link, we record whose link it was so we can move them up the list.\n- **Abuse prevention:** a one-way hash of your IP address, used to limit spam. We do not store your raw IP address.\n- **Assistant:** questions you type are sent to our AI provider to generate an answer. We do not store your chat messages.\n\n## What we don't do\n\nNo advertising trackers, no selling or sharing your data with third parties for marketing.\n\n## Your choices\n\nEvery waitlist email has a link that removes you from the list in one click. You can also ask us to delete any of your data by writing to the email address in the footer.\n\n## Storage\n\nData is stored with our hosting and database providers, protected in transit with HTTPS.",
+  },
+  chatbot: {
+    greeting: "Hi! I'm the Shellkore assistant. Ask me anything about the product, or pick a question below.",
+    suggestions: ["What is Shellkore?", "How does photo-to-BOQ work?", "Do clients need an app?", "When does it launch?", "How do I move up the waitlist?"],
+    extraFacts: "",
+  },
+};
+
+export type Content = typeof DEFAULTS;
+export type ContentKey = keyof Content;
+export const CONTENT_KEYS = Object.keys(DEFAULTS) as ContentKey[];
+
+export const CONTENT_LABELS: Record<ContentKey, string> = {
+  settings: "Site settings",
+  hero: "Home · Hero",
+  platform: "Home · Platform",
+  steps: "Home · How it works",
+  product: "Home · Product screens",
+  why: "Home · Tools it replaces",
+  compare: "Home · Comparison",
+  who: "Home · Who it's for",
+  faq: "Home · FAQ",
+  sites: "Home · Every site, live",
+  calculator: "Home · Savings calculator",
+  cta: "Home · Waitlist banner",
+  about: "About page",
+  terms: "Terms of Service",
+  privacy: "Privacy Policy",
+  chatbot: "AI assistant",
+};
