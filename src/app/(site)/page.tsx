@@ -303,7 +303,7 @@ export default async function Home() {
                 <div className="fp-ov ov-1" aria-hidden="true">
                   <div className="fp-card fp-wa fp-tr">
                     <div className="h"><span className="av">{I.wa}</span><div><b>Rohan Kulkarni</b><small>WhatsApp · Client</small></div></div>
-                    <div className="m"><span>EST-2291 · 3BHK</span><b>₹18,40,000</b></div>
+                    <div className="m"><span>EST-2291<em> · 3BHK interiors</em></span><b>₹18,40,000</b></div>
                     <div className="r">Approved {I.dcheck}</div>
                   </div>
                   <div className="fp-chip fp-bl ok"><i />Synced to PRJ-318 · 11:42</div>
