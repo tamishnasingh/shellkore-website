@@ -218,7 +218,8 @@ function mullionTexture() {
 }
 
 /* ------------------------------------------------------------------ quality: chosen before the first frame */
-const TIER_KEY = "sk3d-tier";
+// new key: tiers remembered under the old (lower-resolution) scheme are discarded
+const TIER_KEY = "sk3d-q2";
 let gpuName: string | null = null;
 /** The GPU's name, read once from a throwaway context (so the real one can be created with the right settings). */
 function probeGpu(): string {
@@ -268,13 +269,17 @@ type Opts = { tex: Record<string, string>; mobile: boolean; reduce: boolean; mod
 export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promise<Scene> {
   // MSAA only where pixels are big enough to need it; on high-density screens the pixels do the smoothing
   const devDpr = window.devicePixelRatio || 1;
-  const hiDpi = devDpr >= 1.75;
-  // quality tiers: resolution, and whether shadows redraw live while scrolling (else once the scroll settles)
+  // the screen's real pixel density (capped at 2: beyond that the eye can't tell, the GPU can)
+  const native = Math.max(1, Math.min(devDpr, 2));
+  const hiDpi = native >= 1.75;
+  // Quality tiers. Resolution is the last thing to go: the first steps only make shadows redraw when the
+  // scroll settles. Even the lightest tier never drops below one pixel per CSS pixel, and a frame at rest
+  // is always redrawn at the screen's full density (see render), so the model is never soft when you look at it.
   const TIERS = [
-    { dpr: hiDpi ? 1.5 : Math.min(devDpr, 1.25), live: true },
-    { dpr: hiDpi ? 1.25 : 1, live: true },
-    { dpr: hiDpi ? 1 : 0.85, live: false },
-    { dpr: 0.75, live: false },
+    { dpr: native, live: true },
+    { dpr: native, live: false },
+    { dpr: Math.max(1, Math.min(native, 1.5)), live: false },
+    { dpr: Math.max(1, native * 0.75), live: false },
   ];
   let tier = startTier(opts.mobile);
   let liveShadows = TIERS[tier].live;
@@ -295,7 +300,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   // Every texture here is seamless and flip-agnostic, so the bitmap's orientation doesn't matter.
   const loader = new THREE.TextureLoader();
   const bitmaps = typeof createImageBitmap === "function" ? new THREE.ImageBitmapLoader() : null;
-  const maxAniso = Math.min(opts.mobile ? 4 : 8, renderer.capabilities.getMaxAnisotropy());
+  const maxAniso = Math.min(opts.mobile ? 8 : 16, renderer.capabilities.getMaxAnisotropy());
   const textures: THREE.Texture[] = [];
   const fetchTex = async (url: string): Promise<THREE.Texture> => {
     if (bitmaps) {
@@ -328,7 +333,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xf7f5f1, 2.6);
   sun.castShadow = true;
-  const sm = opts.mobile || tier > 0 ? 1024 : 1536;
+  const sm = opts.mobile ? 1536 : 2048;
   sun.shadow.mapSize.set(sm, sm);
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 10, far: 220 });
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 2.4;
@@ -753,7 +758,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     renderer.render(scene, camera); // also builds the shadow-pass programs
     hidden.forEach((o) => (o.visible = false));
   }
-  let W = 2, H = 2, dpr = TIERS[tier].dpr;
+  let W = 2, H = 2, dpr = TIERS[tier].dpr, bufDpr = 0;
   const sunDay = new THREE.Vector3(0.62, 0.86, 0.5).normalize();
   const sunDusk = new THREE.Vector3(-0.7, 0.42, 0.62).normalize();
   const sunDir = new THREE.Vector3();
@@ -931,10 +936,10 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   function resize(w: number, h: number, d: number) {
     const nw = Math.max(2, w), nh = Math.max(2, h);
-    const same = nw === W && nh === H && d === dpr;
+    const same = nw === W && nh === H && d === bufDpr;
     W = nw; H = nh; dpr = d;
     // one drawing-buffer reallocation (setPixelRatio + setSize would do two), and none when nothing changed
-    if (!same) renderer.setDrawingBufferSize(W, H, d);
+    if (!same) { renderer.setDrawingBufferSize(W, H, d); bufDpr = d; }
     camera.aspect = W / H;
     camera.fov = W / H < 1 ? 42 : 34;
     // on wide screens the words sit on the left, so the tower is framed slightly right of centre
@@ -969,7 +974,12 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     },
     resetGpu() { gpuTimes.length = 0; },
     update,
-    render: (settle?: boolean) => draw(settle),
+    // at rest, a lighter tier redraws once at full density; it goes back to its own resolution when things move
+    render: (settle?: boolean) => {
+      const want = settle ? native : dpr;
+      if (want !== bufDpr) { renderer.setDrawingBufferSize(W, H, want); bufDpr = want; }
+      draw(settle);
+    },
     resize,
     anchor(phase, P) {
       _a.copy(anchors(P)[phase]).project(camera);

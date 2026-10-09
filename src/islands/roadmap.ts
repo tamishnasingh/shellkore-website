@@ -121,9 +121,9 @@ export function mount(root: HTMLElement): () => void {
   };
   // When the scroll settles with lots of GPU headroom, step back up (invisible: nothing is moving)
   const maybeUpgrade = () => {
-    if (!scene || steppedDown || scene.tier === 0) return;
+    if (!scene || scene.tier === 0 || (steppedDown && performance.now() - lastAdapt < 8000)) return;
     const gpu = scene.gpuMs();
-    if (gpu >= 0 && gpu < 4.5) { scene.resetGpu(); scene.setTier(scene.tier - 1); }
+    if (gpu >= 0 && gpu < 4.5) { scene.resetGpu(); scene.setTier(scene.tier - 1); lastAdapt = performance.now(); }
   };
 
   const size = () => {

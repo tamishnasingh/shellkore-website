@@ -33,7 +33,8 @@ export function mount(root: HTMLElement): () => void {
     if (now - lastScroll < 160 && (skip = !skip)) { if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame); return; }
     lastDraw = now;
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
-    if (last) { times.push(now - last); if (times.length > 45) times.shift(); }
+    // frame times only count when nothing else is throttling the loop (scroll half-rate, tab switches)
+    if (last && now - lastScroll > 400 && now - last < 250) { times.push(now - last); if (times.length > 45) times.shift(); }
     last = now;
     if (!reduce) t += dt;
     const k = 1 - Math.exp(-dt * 3);
@@ -55,7 +56,7 @@ export function mount(root: HTMLElement): () => void {
       if (gpu >= 0) { slow = gpu > 10.5; fast = gpu < 4.5; }
       else if (times.length >= 30) { const s2 = times.slice().sort((a, b) => a - b); slow = s2[s2.length >> 1] > 19; }
       if (slow && scene.setTier(scene.tier + 1)) { steppedDown = true; lastAdapt = now; times.length = 0; scene.resetGpu(); }
-      else if (fast && !steppedDown && scene.tier > 0 && scene.setTier(scene.tier - 1)) { lastAdapt = now; scene.resetGpu(); }
+      else if (fast && scene.tier > 0 && now - lastAdapt > (steppedDown ? 8000 : 1500) && scene.setTier(scene.tier - 1)) { lastAdapt = now; scene.resetGpu(); }
     }
     if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame);
     else last = 0;
