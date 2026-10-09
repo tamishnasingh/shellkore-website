@@ -1,6 +1,7 @@
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
 import { AskWidget } from "@/components/AskWidget";
+import { PaletteSwitcher } from "@/components/PaletteSwitcher";
 import { getContent } from "@/lib/content";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -16,6 +17,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <main id="main">{children}</main>
       <Footer email={c.settings.contactEmail} linkedin={c.settings.linkedin} />
       <AskWidget greeting={c.chatbot.greeting} suggestions={c.chatbot.suggestions} />
+      <PaletteSwitcher />
     </>
   );
 }

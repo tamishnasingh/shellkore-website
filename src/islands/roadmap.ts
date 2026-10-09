@@ -189,12 +189,14 @@ export function mount(root: HTMLElement): () => void {
 
   addEventListener("scroll", kick, { passive: true });
   addEventListener("resize", kick);
+  const onPalette = () => { if (scene) { scene.setPalette(); scene.update(P, px, py); scene.render(true); } };
+  addEventListener("sk-palette", onPalette);
   addEventListener("resize", fit);
   measure(); P = target; setPhase(Math.min(PHASES - 1, Math.floor(target))); paintHud();
 
   return () => {
     dead = true; cancelAnimationFrame(raf); clearTimeout(early); ro.disconnect(); near.disconnect(); io.disconnect();
-    removeEventListener("scroll", kick); removeEventListener("resize", kick); removeEventListener("resize", fit);
+    removeEventListener("scroll", kick); removeEventListener("resize", kick); removeEventListener("resize", fit); removeEventListener("sk-palette", onPalette);
     stage.removeEventListener("pointermove", onMove); root.removeEventListener("click", onRail);
     scene?.dispose();
   };

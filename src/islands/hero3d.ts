@@ -96,13 +96,15 @@ export function mount(root: HTMLElement): () => void {
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) kick(); });
   io.observe(root);
   const onVis = () => { if (!document.hidden) kick(); };
+  const onPalette = () => { if (scene) { scene.setPalette(); scene.update(7, 0, 0); kick(); } };
+  addEventListener("sk-palette", onPalette);
   document.addEventListener("visibilitychange", onVis);
   const onMove = (e: PointerEvent) => { tpx = (e.clientX / innerWidth) * 2 - 1; tpy = (e.clientY / innerHeight) * 2 - 1; };
   if (fine && !reduce) addEventListener("pointermove", onMove, { passive: true });
 
   return () => {
     dead = true; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
-    document.removeEventListener("visibilitychange", onVis); removeEventListener("pointermove", onMove); removeEventListener("scroll", onScroll);
+    document.removeEventListener("visibilitychange", onVis); removeEventListener("pointermove", onMove); removeEventListener("scroll", onScroll); removeEventListener("sk-palette", onPalette);
     scene?.dispose();
   };
 }

@@ -260,6 +260,8 @@ export type Scene = {
   anchor: (phase: number, P: number) => { x: number; y: number } | null;
   /** Hero mode: the finished tower with a scan line; real below it, the digital twin above. t in seconds. */
   hero: (t: number, px: number, py: number) => { scan: number; level: number; pins: ({ x: number; y: number } | null)[] };
+  /** Re-read the palette tokens; call update() and render afterwards. */
+  setPalette: () => void;
   dispose: () => void;
   /** Lowest quality tier: shadows redraw only when the scroll settles. */
   setLiveShadows: (on: boolean) => void;
@@ -351,6 +353,21 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   const DAY = { top: new THREE.Color("#DCE3E8"), hor: new THREE.Color("#F3F1EC"), bot: new THREE.Color("#ECE9E3") };
   const DUSK = { top: new THREE.Color("#CDD2DB"), hor: new THREE.Color("#ECE9E4"), bot: new THREE.Color("#E6E3DD") };
+  const GROUND = { day: new THREE.Color(0xe8e4dc), dusk: new THREE.Color(0xe3e0da) };
+  const BASE = { day: { ...DAY }, dusk: { ...DUSK }, ground: { ...GROUND } };
+  for (const o of [BASE.day, BASE.dusk, BASE.ground] as Record<string, THREE.Color>[]) for (const k in o) o[k] = o[k].clone();
+  /** Sky and ground follow the site palette preview (the --sky-* / --ground tokens), or the built-in look without one. */
+  function applyPalette() {
+    const css = getComputedStyle(document.documentElement);
+    const on = !!document.documentElement.dataset.palette;
+    const col = (name: string, fallback: THREE.Color) => { const v = css.getPropertyValue(name).trim(); return on && v ? new THREE.Color(v) : fallback.clone(); };
+    DAY.top.copy(col("--sky-top", BASE.day.top)); DAY.hor.copy(col("--sky-hor", BASE.day.hor)); DAY.bot.copy(col("--sky-bot", BASE.day.bot));
+    GROUND.day.copy(col("--ground", BASE.ground.day));
+    // golden hour: the same colours, a touch deeper
+    if (on) { DUSK.top.copy(DAY.top).multiplyScalar(0.94); DUSK.hor.copy(DAY.hor).multiplyScalar(0.97); DUSK.bot.copy(DAY.bot).multiplyScalar(0.97); GROUND.dusk.copy(GROUND.day).multiplyScalar(0.98); }
+    else { DUSK.top.copy(BASE.dusk.top); DUSK.hor.copy(BASE.dusk.hor); DUSK.bot.copy(BASE.dusk.bot); GROUND.dusk.copy(BASE.ground.dusk); }
+  }
+  applyPalette();
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(600, 32, 16),
     new THREE.ShaderMaterial({
@@ -405,7 +422,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   /* ---------- ground: soft paper-coloured world, the plot, road and pavement */
   const world = new THREE.Group(); scene.add(world);
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0xe8e4dc });
+  const groundMat = new THREE.MeshLambertMaterial({ color: GROUND.day });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true; world.add(ground);
 
@@ -868,7 +885,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const su = (sky.material as THREE.ShaderMaterial).uniforms;
     su.uTop.value.lerpColors(DAY.top, DUSK.top, dusk); su.uHor.value.lerpColors(DAY.hor, DUSK.hor, dusk); su.uBot.value.lerpColors(DAY.bot, DUSK.bot, dusk);
     (scene.fog as THREE.Fog).color.copy(su.uHor.value);
-    groundMat.color.set(0xe8e4dc).lerp(new THREE.Color(0xe3e0da), dusk);
+    groundMat.color.copy(GROUND.day).lerp(GROUND.dusk, dusk);
 
     // camera on its path, with a little lean toward the pointer
     const [r, az, el, ty] = camAt(P);
@@ -965,6 +982,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   return {
     hero,
+    setPalette: applyPalette,
     setLiveShadows(on: boolean) { liveShadows = on; },
     /** Move to another quality tier (0 best … 3 lightest). Remembered for this device's next visit. */
     setTier(n: number) {
