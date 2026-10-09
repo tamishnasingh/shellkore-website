@@ -117,11 +117,18 @@ function merge(w: [number, number][]): [number, number][] {
   for (const iv of s) { const l = out[out.length - 1]; if (l && iv[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], iv[1]); else out.push([iv[0], iv[1]]); }
   return out;
 }
-const idle = () => new Promise<void>((r) => setTimeout(r, 0));
+// Yield between build steps. Where the browser offers it, wait for an idle moment, so the build never takes a
+// frame away from scrolling; the timeout keeps it from stalling on a page that is never idle.
+const idle = () => new Promise<void>((r) => {
+  const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  if (ric) ric(() => r(), { timeout: 250 }); else setTimeout(r, 0);
+});
 
 /* ------------------------------------------------------------------ materials */
-/** World-space (triplanar) texturing with UDN-blended normal maps, so every box, whatever its size, gets a
- *  correctly scaled, seamless surface. */
+/** World-space texturing with normal maps, so every box, whatever its size, gets a correctly scaled, seamless
+ *  surface. Every surface here is an axis-aligned box face, which only ever shows one of the three world
+ *  projections, so the shader picks that projection instead of blending all three: one colour and one normal
+ *  fetch per pixel instead of three of each, with the same result. */
 function triplanar<T extends THREE.MeshStandardMaterial | THREE.MeshLambertMaterial>(mat: T, scale: [number, number], normalScale = 1) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTri = { value: new THREE.Vector2(scale[0], scale[1]) };
@@ -142,24 +149,23 @@ function triplanar<T extends THREE.MeshStandardMaterial | THREE.MeshLambertMater
       .replace("#include <common>", "#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNrm;\nuniform vec2 uTri;\nuniform float uNs;")
       .replace("#include <map_fragment>", `
         vec3 triWN = normalize(vTriNrm);
-        vec3 triB = pow(abs(triWN), vec3(6.0)); triB /= (triB.x + triB.y + triB.z);
-        vec2 uvX = vTriPos.zy * uTri; vec2 uvY = vTriPos.xz * uTri.xx; vec2 uvZ = vTriPos.xy * uTri;
+        vec3 triA = abs(triWN);
+        float wX = step(triA.y, triA.x) * step(triA.z, triA.x);
+        float wY = (1.0 - wX) * step(triA.z, triA.y);
+        float wZ = 1.0 - wX - wY;
+        vec2 triUV = vTriPos.zy * uTri * wX + vTriPos.xz * uTri.xx * wY + vTriPos.xy * uTri * wZ;
         #ifdef USE_MAP
-          vec4 triC = texture2D(map, uvX) * triB.x + texture2D(map, uvY) * triB.y + texture2D(map, uvZ) * triB.z;
-          diffuseColor *= triC;
+          diffuseColor *= texture2D(map, triUV);
         #endif`)
       .replace("#include <normal_fragment_maps>", `
         #ifdef USE_NORMALMAP
-          vec3 tX = texture2D(normalMap, uvX).xyz * 2.0 - 1.0;
-          vec3 tY = texture2D(normalMap, uvY).xyz * 2.0 - 1.0;
-          vec3 tZ = texture2D(normalMap, uvZ).xyz * 2.0 - 1.0;
-          tX.xy *= uNs; tY.xy *= uNs; tZ.xy *= uNs;
+          vec3 tN = texture2D(normalMap, triUV).xyz * 2.0 - 1.0;
+          tN.xy *= uNs;
           vec3 sgn = sign(triWN);
-          tX.x *= sgn.x; tY.x *= sgn.y; tZ.x *= -sgn.z;
-          tX = vec3(tX.xy + triWN.zy, triWN.x);
-          tY = vec3(tY.xy + triWN.xz, triWN.y);
-          tZ = vec3(tZ.xy + triWN.xy, triWN.z);
-          vec3 triPert = normalize(tX.zyx * triB.x + tY.xzy * triB.y + tZ.xyz * triB.z);
+          vec3 tX = vec3(tN.x * sgn.x + triWN.z, tN.y + triWN.y, triWN.x);
+          vec3 tY = vec3(tN.x * sgn.y + triWN.x, tN.y + triWN.z, triWN.y);
+          vec3 tZ = vec3(-tN.x * sgn.z + triWN.x, tN.y + triWN.y, triWN.z);
+          vec3 triPert = normalize(tX.zyx * wX + tY.xzy * wY + tZ.xyz * wZ);
           normal = normalize((viewMatrix * vec4(triPert, 0.0)).xyz);
         #endif`);
   };
@@ -240,7 +246,8 @@ function probeGpu(): string {
 function startTier(mobile: boolean): number {
   const gpu = probeGpu();
   let t = mobile ? 1 : 0;
-  if (!/apple/i.test(gpu) && /intel|mali|adreno|powervr|swiftshader|llvmpipe|basic render|software|microsoft/i.test(gpu)) t = Math.max(t, 1);
+  // integrated GPUs, including AMD's (reported as plain "Radeon(TM) Graphics" / "Vega", unlike the discrete "RX" cards)
+  if (!/apple/i.test(gpu) && /intel|mali|adreno|powervr|swiftshader|llvmpipe|basic render|software|microsoft|radeon\(tm\) graphics|vega/i.test(gpu)) t = Math.max(t, 1);
   try { const saved = Number(localStorage.getItem(TIER_KEY)); if (Number.isFinite(saved) && saved > 0) t = Math.max(t, Math.min(3, saved)); } catch { /* storage blocked */ }
   return t;
 }
@@ -254,6 +261,8 @@ export type Scene = {
   anchor: (phase: number, P: number) => { x: number; y: number } | null;
   /** Hero mode: the finished tower with a scan line; real below it, the digital twin above. t in seconds. */
   hero: (t: number, px: number, py: number) => { scan: number; level: number; pins: ({ x: number; y: number } | null)[] };
+  /** Re-read the palette tokens; call update() and render afterwards. */
+  setPalette: () => void;
   dispose: () => void;
   /** Lowest quality tier: shadows redraw only when the scroll settles. */
   setLiveShadows: (on: boolean) => void;
@@ -272,14 +281,18 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   // the screen's real pixel density (capped at 2: beyond that the eye can't tell, the GPU can)
   const native = Math.max(1, Math.min(devDpr, 2));
   const hiDpi = native >= 1.75;
-  // Quality tiers. Resolution is the last thing to go: the first steps only make shadows redraw when the
-  // scroll settles. Even the lightest tier never drops below one pixel per CSS pixel, and a frame at rest
-  // is always redrawn at the screen's full density (see render), so the model is never soft when you look at it.
+  // Quality tiers. Resolution is the last thing to go: the first step only makes shadows redraw when the
+  // scroll settles. The lighter tiers draw fewer pixels *while the building moves*; a frame at rest is always
+  // redrawn at the screen's full density (see render), so the model is never soft when you look at it.
+  // (A floor of one pixel per CSS pixel used to apply here, which on a standard 1x desktop monitor made the
+  // lighter tiers no lighter at all: a slow GPU had nowhere to go and the scroll stayed choppy.)
+  // The hero is always in motion, so it never gets a full-density frame at rest: it keeps one pixel per CSS pixel.
+  const low = (k: number) => (opts.mode === "hero" ? Math.max(1, native * k) : native * k);
   const TIERS = [
     { dpr: native, live: true },
     { dpr: native, live: false },
-    { dpr: Math.max(1, Math.min(native, 1.5)), live: false },
-    { dpr: Math.max(1, native * 0.75), live: false },
+    { dpr: low(0.8), live: false },
+    { dpr: low(0.65), live: false },
   ];
   let tier = startTier(opts.mobile);
   let liveShadows = TIERS[tier].live;
@@ -288,7 +301,10 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Desktop: variance shadow maps. The soft edge is blurred once, when the shadow map is redrawn, and every
+  // pixel then reads it with a single lookup (PCF reads it 17 times per pixel, on every pixel, every frame).
+  const VSM = !opts.mobile;
+  renderer.shadowMap.type = VSM ? THREE.VSMShadowMap : THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
   renderer.localClippingEnabled = true;
 
@@ -333,14 +349,31 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xf7f5f1, 2.6);
   sun.castShadow = true;
-  const sm = opts.mobile ? 1536 : 2048;
+  // VSM's blur supplies the softness, so a 1024 map (a quarter of the pixels to redraw) looks the same
+  const sm = opts.mobile ? 1536 : 1024;
   sun.shadow.mapSize.set(sm, sm);
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 10, far: 220 });
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 2.4;
+  sun.shadow.bias = VSM ? -0.0006 : -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 3;
+  if (VSM) sun.shadow.blurSamples = 8;
   scene.add(sun, sun.target);
 
   const DAY = { top: new THREE.Color("#DCE3E8"), hor: new THREE.Color("#F3F1EC"), bot: new THREE.Color("#ECE9E3") };
   const DUSK = { top: new THREE.Color("#CDD2DB"), hor: new THREE.Color("#ECE9E4"), bot: new THREE.Color("#E6E3DD") };
+  const GROUND = { day: new THREE.Color(0xe8e4dc), dusk: new THREE.Color(0xe3e0da) };
+  const BASE = { day: { ...DAY }, dusk: { ...DUSK }, ground: { ...GROUND } };
+  for (const o of [BASE.day, BASE.dusk, BASE.ground] as Record<string, THREE.Color>[]) for (const k in o) o[k] = o[k].clone();
+  /** Sky and ground follow the site palette preview (the --sky-* / --ground tokens), or the built-in look without one. */
+  function applyPalette() {
+    const css = getComputedStyle(document.documentElement);
+    const on = !!document.documentElement.dataset.palette;
+    const col = (name: string, fallback: THREE.Color) => { const v = css.getPropertyValue(name).trim(); return on && v ? new THREE.Color(v) : fallback.clone(); };
+    DAY.top.copy(col("--sky-top", BASE.day.top)); DAY.hor.copy(col("--sky-hor", BASE.day.hor)); DAY.bot.copy(col("--sky-bot", BASE.day.bot));
+    GROUND.day.copy(col("--ground", BASE.ground.day));
+    // golden hour: the same colours, a touch deeper
+    if (on) { DUSK.top.copy(DAY.top).multiplyScalar(0.94); DUSK.hor.copy(DAY.hor).multiplyScalar(0.97); DUSK.bot.copy(DAY.bot).multiplyScalar(0.97); GROUND.dusk.copy(GROUND.day).multiplyScalar(0.98); }
+    else { DUSK.top.copy(BASE.dusk.top); DUSK.hor.copy(BASE.dusk.hor); DUSK.bot.copy(BASE.dusk.bot); GROUND.dusk.copy(BASE.ground.dusk); }
+  }
+  applyPalette();
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(600, 32, 16),
     new THREE.ShaderMaterial({
@@ -395,7 +428,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   /* ---------- ground: soft paper-coloured world, the plot, road and pavement */
   const world = new THREE.Group(); scene.add(world);
-  const groundMat = new THREE.MeshLambertMaterial({ color: 0xe8e4dc });
+  const groundMat = new THREE.MeshLambertMaterial({ color: GROUND.day });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true; world.add(ground);
 
@@ -858,7 +891,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const su = (sky.material as THREE.ShaderMaterial).uniforms;
     su.uTop.value.lerpColors(DAY.top, DUSK.top, dusk); su.uHor.value.lerpColors(DAY.hor, DUSK.hor, dusk); su.uBot.value.lerpColors(DAY.bot, DUSK.bot, dusk);
     (scene.fog as THREE.Fog).color.copy(su.uHor.value);
-    groundMat.color.set(0xe8e4dc).lerp(new THREE.Color(0xe3e0da), dusk);
+    groundMat.color.copy(GROUND.day).lerp(GROUND.dusk, dusk);
 
     // camera on its path, with a little lean toward the pointer
     const [r, az, el, ty] = camAt(P);
@@ -871,7 +904,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const fog = scene.fog as THREE.Fog; fog.near = rr + 45; fog.far = rr + 360;
     sky.position.copy(camera.position);
   }
-  let shadowDirty = true;
+  let shadowDirty = true, shadowTick = 0;
   // GPU time per frame, measured with timer queries where the browser offers them (Chrome desktop). This is what
   // the quality tiers are tuned on: it shows real headroom, which frame intervals on a 60 Hz screen can't.
   const gl = renderer.getContext() as WebGL2RenderingContext;
@@ -892,7 +925,10 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   /** Render. Shadows are redrawn only when a shadow-casting part has moved; on the lighter tiers only once the
    *  scroll settles. */
   function draw(settle = false) {
-    if (shadowDirty && (liveShadows || settle)) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+    // live shadows follow the moving building at a third of the frame rate (redrawing the shadow map is a whole
+    // extra render); the frame at rest always gets an exact one
+    shadowTick = (shadowTick + 1) % 3;
+    if (shadowDirty && (settle || (liveShadows && shadowTick === 0))) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
     let q: WebGLQuery | null = null;
     if (tq && pending.length < 4) { q = gl.createQuery(); if (q) gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
     renderer.render(scene, camera);
@@ -955,6 +991,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   return {
     hero,
+    setPalette: applyPalette,
     setLiveShadows(on: boolean) { liveShadows = on; },
     /** Move to another quality tier (0 best … 3 lightest). Remembered for this device's next visit. */
     setTier(n: number) {
