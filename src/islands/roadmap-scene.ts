@@ -125,8 +125,10 @@ const idle = () => new Promise<void>((r) => {
 });
 
 /* ------------------------------------------------------------------ materials */
-/** World-space (triplanar) texturing with UDN-blended normal maps, so every box, whatever its size, gets a
- *  correctly scaled, seamless surface. */
+/** World-space texturing with normal maps, so every box, whatever its size, gets a correctly scaled, seamless
+ *  surface. Every surface here is an axis-aligned box face, which only ever shows one of the three world
+ *  projections, so the shader picks that projection instead of blending all three: one colour and one normal
+ *  fetch per pixel instead of three of each, with the same result. */
 function triplanar<T extends THREE.MeshStandardMaterial | THREE.MeshLambertMaterial>(mat: T, scale: [number, number], normalScale = 1) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTri = { value: new THREE.Vector2(scale[0], scale[1]) };
@@ -147,24 +149,23 @@ function triplanar<T extends THREE.MeshStandardMaterial | THREE.MeshLambertMater
       .replace("#include <common>", "#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNrm;\nuniform vec2 uTri;\nuniform float uNs;")
       .replace("#include <map_fragment>", `
         vec3 triWN = normalize(vTriNrm);
-        vec3 triB = pow(abs(triWN), vec3(6.0)); triB /= (triB.x + triB.y + triB.z);
-        vec2 uvX = vTriPos.zy * uTri; vec2 uvY = vTriPos.xz * uTri.xx; vec2 uvZ = vTriPos.xy * uTri;
+        vec3 triA = abs(triWN);
+        float wX = step(triA.y, triA.x) * step(triA.z, triA.x);
+        float wY = (1.0 - wX) * step(triA.z, triA.y);
+        float wZ = 1.0 - wX - wY;
+        vec2 triUV = vTriPos.zy * uTri * wX + vTriPos.xz * uTri.xx * wY + vTriPos.xy * uTri * wZ;
         #ifdef USE_MAP
-          vec4 triC = texture2D(map, uvX) * triB.x + texture2D(map, uvY) * triB.y + texture2D(map, uvZ) * triB.z;
-          diffuseColor *= triC;
+          diffuseColor *= texture2D(map, triUV);
         #endif`)
       .replace("#include <normal_fragment_maps>", `
         #ifdef USE_NORMALMAP
-          vec3 tX = texture2D(normalMap, uvX).xyz * 2.0 - 1.0;
-          vec3 tY = texture2D(normalMap, uvY).xyz * 2.0 - 1.0;
-          vec3 tZ = texture2D(normalMap, uvZ).xyz * 2.0 - 1.0;
-          tX.xy *= uNs; tY.xy *= uNs; tZ.xy *= uNs;
+          vec3 tN = texture2D(normalMap, triUV).xyz * 2.0 - 1.0;
+          tN.xy *= uNs;
           vec3 sgn = sign(triWN);
-          tX.x *= sgn.x; tY.x *= sgn.y; tZ.x *= -sgn.z;
-          tX = vec3(tX.xy + triWN.zy, triWN.x);
-          tY = vec3(tY.xy + triWN.xz, triWN.y);
-          tZ = vec3(tZ.xy + triWN.xy, triWN.z);
-          vec3 triPert = normalize(tX.zyx * triB.x + tY.xzy * triB.y + tZ.xyz * triB.z);
+          vec3 tX = vec3(tN.x * sgn.x + triWN.z, tN.y + triWN.y, triWN.x);
+          vec3 tY = vec3(tN.x * sgn.y + triWN.x, tN.y + triWN.z, triWN.y);
+          vec3 tZ = vec3(-tN.x * sgn.z + triWN.x, tN.y + triWN.y, triWN.z);
+          vec3 triPert = normalize(tX.zyx * wX + tY.xzy * wY + tZ.xyz * wZ);
           normal = normalize((viewMatrix * vec4(triPert, 0.0)).xyz);
         #endif`);
   };
@@ -300,7 +301,10 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
+  // Desktop: variance shadow maps. The soft edge is blurred once, when the shadow map is redrawn, and every
+  // pixel then reads it with a single lookup (PCF reads it 17 times per pixel, on every pixel, every frame).
+  const VSM = !opts.mobile;
+  renderer.shadowMap.type = VSM ? THREE.VSMShadowMap : THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
   renderer.localClippingEnabled = true;
 
@@ -345,10 +349,12 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xf7f5f1, 2.6);
   sun.castShadow = true;
-  const sm = opts.mobile ? 1536 : 2048;
+  // VSM's blur supplies the softness, so a 1024 map (a quarter of the pixels to redraw) looks the same
+  const sm = opts.mobile ? 1536 : 1024;
   sun.shadow.mapSize.set(sm, sm);
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 10, far: 220 });
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 2.4;
+  sun.shadow.bias = VSM ? -0.0006 : -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 3;
+  if (VSM) sun.shadow.blurSamples = 8;
   scene.add(sun, sun.target);
 
   const DAY = { top: new THREE.Color("#DCE3E8"), hor: new THREE.Color("#F3F1EC"), bot: new THREE.Color("#ECE9E3") };
@@ -898,7 +904,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const fog = scene.fog as THREE.Fog; fog.near = rr + 45; fog.far = rr + 360;
     sky.position.copy(camera.position);
   }
-  let shadowDirty = true;
+  let shadowDirty = true, shadowTick = 0;
   // GPU time per frame, measured with timer queries where the browser offers them (Chrome desktop). This is what
   // the quality tiers are tuned on: it shows real headroom, which frame intervals on a 60 Hz screen can't.
   const gl = renderer.getContext() as WebGL2RenderingContext;
@@ -919,7 +925,10 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   /** Render. Shadows are redrawn only when a shadow-casting part has moved; on the lighter tiers only once the
    *  scroll settles. */
   function draw(settle = false) {
-    if (shadowDirty && (liveShadows || settle)) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+    // live shadows follow the moving building at a third of the frame rate (redrawing the shadow map is a whole
+    // extra render); the frame at rest always gets an exact one
+    shadowTick = (shadowTick + 1) % 3;
+    if (shadowDirty && (settle || (liveShadows && shadowTick === 0))) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
     let q: WebGLQuery | null = null;
     if (tq && pending.length < 4) { q = gl.createQuery(); if (q) gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
     renderer.render(scene, camera);
