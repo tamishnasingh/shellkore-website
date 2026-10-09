@@ -175,6 +175,7 @@ export function mount(root: HTMLElement): () => void {
   };
   const frame = () => {
     raf = 0;
+    measure(); // read layout at the start of the frame, not in the scroll handler (avoids forced layouts)
     P += (target - P) * 0.14;
     if (Math.abs(target - P) < 0.002) P = target;
     // redraw the plan only when it has visibly moved: keeps scrolling light on phones
@@ -191,7 +192,7 @@ export function mount(root: HTMLElement): () => void {
     }
     if (P !== target && visible) raf = requestAnimationFrame(frame);
   };
-  const kick = () => { measure(); if (!raf) raf = requestAnimationFrame(frame); };
+  const kick = () => { if (!raf) raf = requestAnimationFrame(frame); };
   addEventListener("scroll", kick, { passive: true });
   addEventListener("resize", kick);
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) kick(); });

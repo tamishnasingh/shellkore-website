@@ -117,7 +117,12 @@ function merge(w: [number, number][]): [number, number][] {
   for (const iv of s) { const l = out[out.length - 1]; if (l && iv[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], iv[1]); else out.push([iv[0], iv[1]]); }
   return out;
 }
-const idle = () => new Promise<void>((r) => setTimeout(r, 0));
+// Yield between build steps. Where the browser offers it, wait for an idle moment, so the build never takes a
+// frame away from scrolling; the timeout keeps it from stalling on a page that is never idle.
+const idle = () => new Promise<void>((r) => {
+  const ric = (globalThis as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  if (ric) ric(() => r(), { timeout: 250 }); else setTimeout(r, 0);
+});
 
 /* ------------------------------------------------------------------ materials */
 /** World-space (triplanar) texturing with UDN-blended normal maps, so every box, whatever its size, gets a

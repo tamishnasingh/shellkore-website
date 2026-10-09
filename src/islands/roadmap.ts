@@ -89,6 +89,9 @@ export function mount(root: HTMLElement): () => void {
   const frame = (now: number) => {
     raf = 0;
     if (dead) return;
+    // layout is read here, at the start of a frame when it is already clean, never in the scroll handler
+    // (reading it there, after last frame's writes, forces a synchronous layout on every scroll event)
+    measure();
     const dt = Math.min(0.05, (now - (last || now)) / 1000 || 0.016);
     if (last) { frameTimes.push(now - last); if (frameTimes.length > 40) frameTimes.shift(); }
     last = now;
@@ -105,7 +108,7 @@ export function mount(root: HTMLElement): () => void {
     if (moving && visible) raf = requestAnimationFrame(frame);
     else { last = 0; frameTimes.length = 0; if (scene && visible) { maybeUpgrade(); scene.render(true); placeCallout(); } }
   };
-  const kick = () => { measure(); if (!raf && !dead) raf = requestAnimationFrame(frame); };
+  const kick = () => { if (!raf && !dead) raf = requestAnimationFrame(frame); };
 
   // Keep 60 fps: step quality down when the GPU (or, where it can't be timed, the frame rate) is over budget.
   // Medians only, so one slow frame never triggers a change. Steps are remembered for this device.
@@ -158,6 +161,13 @@ export function mount(root: HTMLElement): () => void {
   };
   const near = new IntersectionObserver(([e]) => { if (e.isIntersecting) { load(); near.disconnect(); } }, { rootMargin: "150% 0px" });
   near.observe(root);
+  // Building the scene is main-thread work; done while the reader is scrolling toward it, it shows as hitches.
+  // On desktop, build it ahead of time once the page has gone quiet (the near-observer remains the fallback).
+  let early = 0;
+  if (!mobile) {
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    early = window.setTimeout(() => { if (ric) ric(() => load(), { timeout: 4000 }); else load(); }, 3000);
+  }
   const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) kick(); });
   io.observe(stage);
 
@@ -183,7 +193,7 @@ export function mount(root: HTMLElement): () => void {
   measure(); P = target; setPhase(Math.min(PHASES - 1, Math.floor(target))); paintHud();
 
   return () => {
-    dead = true; cancelAnimationFrame(raf); ro.disconnect(); near.disconnect(); io.disconnect();
+    dead = true; cancelAnimationFrame(raf); clearTimeout(early); ro.disconnect(); near.disconnect(); io.disconnect();
     removeEventListener("scroll", kick); removeEventListener("resize", kick); removeEventListener("resize", fit);
     stage.removeEventListener("pointermove", onMove); root.removeEventListener("click", onRail);
     scene?.dispose();
