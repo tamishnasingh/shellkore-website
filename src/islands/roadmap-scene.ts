@@ -245,7 +245,8 @@ function probeGpu(): string {
 function startTier(mobile: boolean): number {
   const gpu = probeGpu();
   let t = mobile ? 1 : 0;
-  if (!/apple/i.test(gpu) && /intel|mali|adreno|powervr|swiftshader|llvmpipe|basic render|software|microsoft/i.test(gpu)) t = Math.max(t, 1);
+  // integrated GPUs, including AMD's (reported as plain "Radeon(TM) Graphics" / "Vega", unlike the discrete "RX" cards)
+  if (!/apple/i.test(gpu) && /intel|mali|adreno|powervr|swiftshader|llvmpipe|basic render|software|microsoft|radeon\(tm\) graphics|vega/i.test(gpu)) t = Math.max(t, 1);
   try { const saved = Number(localStorage.getItem(TIER_KEY)); if (Number.isFinite(saved) && saved > 0) t = Math.max(t, Math.min(3, saved)); } catch { /* storage blocked */ }
   return t;
 }
@@ -277,14 +278,18 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   // the screen's real pixel density (capped at 2: beyond that the eye can't tell, the GPU can)
   const native = Math.max(1, Math.min(devDpr, 2));
   const hiDpi = native >= 1.75;
-  // Quality tiers. Resolution is the last thing to go: the first steps only make shadows redraw when the
-  // scroll settles. Even the lightest tier never drops below one pixel per CSS pixel, and a frame at rest
-  // is always redrawn at the screen's full density (see render), so the model is never soft when you look at it.
+  // Quality tiers. Resolution is the last thing to go: the first step only makes shadows redraw when the
+  // scroll settles. The lighter tiers draw fewer pixels *while the building moves*; a frame at rest is always
+  // redrawn at the screen's full density (see render), so the model is never soft when you look at it.
+  // (A floor of one pixel per CSS pixel used to apply here, which on a standard 1x desktop monitor made the
+  // lighter tiers no lighter at all: a slow GPU had nowhere to go and the scroll stayed choppy.)
+  // The hero is always in motion, so it never gets a full-density frame at rest: it keeps one pixel per CSS pixel.
+  const low = (k: number) => (opts.mode === "hero" ? Math.max(1, native * k) : native * k);
   const TIERS = [
     { dpr: native, live: true },
     { dpr: native, live: false },
-    { dpr: Math.max(1, Math.min(native, 1.5)), live: false },
-    { dpr: Math.max(1, native * 0.75), live: false },
+    { dpr: low(0.8), live: false },
+    { dpr: low(0.65), live: false },
   ];
   let tier = startTier(opts.mobile);
   let liveShadows = TIERS[tier].live;
