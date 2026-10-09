@@ -34,12 +34,8 @@ export function mount(root: HTMLElement): () => void {
   let target = 0, P = 0, px = 0, py = 0, tpx = 0, tpy = 0;
   let raf = 0, last = 0, active = -1, visible = false, dead = false;
   let scene: Scene | null = null, sceneW = 0, sceneH = 0;
-  // high-density screens render at 1.5x without MSAA; others at up to 1.25x with MSAA (decided in the scene)
-  const devDpr = devicePixelRatio || 1;
-  let dpr = devDpr >= 1.75 ? 1.5 : Math.min(devDpr, 1.25);
-  const MIN_DPR = mobile ? 1 : 0.75;
   const frameTimes: number[] = [];
-  let lastAdapt = 0, shadowsOff = false;
+  let lastAdapt = 0, steppedDown = false;
   const railEl = root.querySelector<HTMLElement>(".rm-rail");
   const hudLast = { day: "", pct: "", spent: "", bar: "", rail: "" };
 
@@ -107,25 +103,33 @@ export function mount(root: HTMLElement): () => void {
     const moving = P !== target || Math.abs(tpx - px) > 0.001 || Math.abs(tpy - py) > 0.001;
     root.toggleAttribute("data-settled", !moving);
     if (moving && visible) raf = requestAnimationFrame(frame);
-    else { last = 0; frameTimes.length = 0; if (scene && visible) { scene.render(true); placeCallout(); } }
+    else { last = 0; frameTimes.length = 0; if (scene && visible) { maybeUpgrade(); scene.render(true); placeCallout(); } }
   };
   const kick = () => { measure(); if (!raf && !dead) raf = requestAnimationFrame(frame); };
 
-  // keep 60 fps on slower devices: step resolution down, then stop live shadow redraws as a last resort.
-  // Uses the median frame time, so a single slow frame never triggers a change.
+  // Keep 60 fps: step quality down when the GPU (or, where it can't be timed, the frame rate) is over budget.
+  // Medians only, so one slow frame never triggers a change. Steps are remembered for this device.
   const adapt = (now: number) => {
-    if (!scene || frameTimes.length < 24 || now - lastAdapt < 1200) return;
-    const sorted = frameTimes.slice().sort((a, b) => a - b), med = sorted[sorted.length >> 1];
-    if (med <= 19) return;
-    lastAdapt = now; frameTimes.length = 0;
-    if (dpr > MIN_DPR + 0.01) { dpr = Math.max(MIN_DPR, dpr - 0.25); scene.resize(sceneW, sceneH, dpr); }
-    else if (!shadowsOff) { shadowsOff = true; scene.setLiveShadows(false); }
+    if (!scene || now - lastAdapt < 700) return;
+    const gpu = scene.gpuMs();
+    let slow = false;
+    if (gpu >= 0) slow = gpu > 10.5;
+    else if (frameTimes.length >= 20) { const s2 = frameTimes.slice().sort((a, b) => a - b); slow = s2[s2.length >> 1] > 19; }
+    if (!slow) return;
+    lastAdapt = now; frameTimes.length = 0; scene.resetGpu();
+    if (scene.setTier(scene.tier + 1)) steppedDown = true;
+  };
+  // When the scroll settles with lots of GPU headroom, step back up (invisible: nothing is moving)
+  const maybeUpgrade = () => {
+    if (!scene || steppedDown || scene.tier === 0) return;
+    const gpu = scene.gpuMs();
+    if (gpu >= 0 && gpu < 4.5) { scene.resetGpu(); scene.setTier(scene.tier - 1); }
   };
 
   const size = () => {
     const b = canvas.getBoundingClientRect();
     sceneW = Math.round(b.width); sceneH = Math.round(b.height);
-    if (scene) { scene.resize(sceneW, sceneH, dpr); scene.update(P, px, py); scene.render(); placeCallout(); }
+    if (scene) { scene.resize(sceneW, sceneH, scene.dpr); scene.update(P, px, py); scene.render(); placeCallout(); }
   };
   const ro = new ResizeObserver(size);
   ro.observe(canvas);

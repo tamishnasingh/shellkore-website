@@ -145,7 +145,7 @@ export function Toolkit({ kicker, heading, lede, note }: { kicker: string; headi
                 <span><small>Primer</small><b data-o="pPrimer">{p.primerL.toFixed(1)} L</b></span>
                 <span><small>Wall putty</small><b data-o="pPutty">{p.puttyKg.toFixed(1)} kg</b></span>
               </div>
-              <div className="tk-swatches" aria-hidden="true">{["#F3EEE6", "#E7D9C4", "#C9D3CF", "#D8C2B4", "#B9C4D0", "#EB7A2A"].map((c) => <i key={c} style={{ background: c }} />)}</div>
+              <div className="tk-swatches" aria-hidden="true">{["#F3EEE6", "#E7D9C4", "#C9D3CF", "#D8C2B4", "#B9C4D0", "#2F3A42"].map((c) => <i key={c} style={{ background: c }} />)}</div>
             </div>
           </div>
 

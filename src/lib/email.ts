@@ -51,7 +51,7 @@ The Shellkore team
 Don't want these emails? Remove yourself: ${out}`;
   const html = `<div style="font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#16150F;max-width:520px;margin:0 auto;padding:24px">
 <p style="font-size:15px;line-height:1.6">${esc(lead)}</p>
-<div style="margin:20px 0;padding:20px;border-radius:14px;background:#FDF3EA;border:1px solid #F6D9BF">
+<div style="margin:20px 0;padding:20px;border-radius:14px;background:#F7F5F1;border:1px solid #E0DEDA">
 <div style="font-size:13px;color:#6C6860">Your place in line</div>
 <div style="font-size:40px;font-weight:700;letter-spacing:-1px">#${spot.position}</div>
 <div style="font-size:13px;color:#6C6860">${spot.referrals} referral${spot.referrals === 1 ? "" : "s"} so far</div></div>

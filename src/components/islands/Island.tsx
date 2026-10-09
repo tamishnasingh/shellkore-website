@@ -20,6 +20,7 @@ const LOADERS = {
   roadmap: () => import("@/islands/roadmap"),
   hero3d: () => import("@/islands/hero3d"),
   toolkit: () => import("@/islands/toolkit"),
+  pauser: () => import("@/islands/pauser"),
 } as const;
 
 type Props = { name: keyof typeof LOADERS; as?: "div" | "section" | "ol" | "ul"; className?: string; id?: string; children?: React.ReactNode; html?: string; data?: Record<string, string> };

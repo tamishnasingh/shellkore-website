@@ -28,7 +28,7 @@ const FLOW: [string, string, string, string][] = [
 ];
 const ORBIT_R = 190, SOON_R = 262, C = 280;
 const pos = (deg: number, r: number) => ({ left: `${((C + r * Math.cos((deg * Math.PI) / 180)) / 560) * 100}%`, top: `${((C + r * Math.sin((deg * Math.PI) / 180)) / 560) * 100}%` });
-const TOOL_COLORS = ["#1FA855", "#1D6F42", "#2E5AAC", "#D8262B", "#FF7A59", "#0A7FD0"];
+const TOOL_COLORS = ["#1FA855", "#1D6F42", "#2E5AAC", "#D8262B", "#3D3A33", "#0A7FD0"];
 const LEDGER: [string, string][] = [
   ["Approvals on WhatsApp", "built in"],
   ["BOQs priced from site photos", "live"],
@@ -124,7 +124,7 @@ export default async function Home() {
         </Island>
         <div className="wrap h3-copy">
           <span className="h3-kick"><i />Construction OS · Waitlist open</span>
-          <h1>{lines.map((l, i) => <span className="l" key={i}><span>{l}</span></span>)}</h1>
+          <h1>{lines.map((l, i) => <span className="l" key={i}><span>{l}</span>{i < lines.length - 1 ? " " : ""}</span>)}</h1>
           <p className="sub">{hero.subtitle}</p>
           <WaitlistForm note={hero.note} source="hero" joined />
           <div className="hero-meta">
@@ -162,7 +162,7 @@ export default async function Home() {
                 <div className="ph"><div><b>Prestige Lakeside, Tower B</b><small>3BHK interiors for Rohan Kulkarni · Sample project</small></div><span className="chip ok"><i />On track</span></div>
                 <div className="tabs-mini"><span className="on">Overview</span><span>BOQ</span><span>Purchase orders</span><span>Site</span><span>Invoices</span></div>
                 <div className="kpis">
-                  <div className="kpi"><small>Contract</small><b>₹18.40L</b><Sparkline points={[3, 3, 3, 3, 3, 3]} color="#B9B2A5" /></div>
+                  <div className="kpi"><small>Contract</small><b>₹18.40L</b><Sparkline points={[3, 3, 3, 3, 3, 3]} color="#B5B3AF" /></div>
                   <div className="kpi"><small>Committed</small><b>₹9.86L</b><Sparkline points={[1, 2, 3.2, 4.1, 5.8, 7]} color="#16150F" /></div>
                   <div className="kpi"><small>Received</small><b>₹3.68L</b><Sparkline points={[0, 0, 2, 2, 3.68, 3.68]} color="#2E8B57" /></div>
                   <div className="kpi hl"><small>Projected margin</small><b>21.7%</b><Sparkline points={[18, 19.2, 19, 20.4, 21, 21.7]} /></div>
@@ -227,7 +227,7 @@ export default async function Home() {
                 return <line key={i} className="spoke" x1={C + 95 * Math.cos(a)} y1={C + 95 * Math.sin(a)} x2={C + ORBIT_R * Math.cos(a)} y2={C + ORBIT_R * Math.sin(a)} />;
               })}
               <circle className="ring" cx={C} cy={C} r={ORBIT_R} />
-              <path className="flow" d={`M${C} ${C - ORBIT_R} a${ORBIT_R} ${ORBIT_R} 0 1 1 -0.01 0`} />
+              <path className="flow" d={`M${C} ${C - ORBIT_R} a${ORBIT_R} ${ORBIT_R} 0 1 1 -0.01 0`} pathLength={600} />
             </svg>
             <div className="core">
               <Mark size={26} />
@@ -484,7 +484,7 @@ export default async function Home() {
                 </div>
                 <svg viewBox="0 0 320 132" preserveAspectRatio="none" aria-hidden="true">
                   <defs>
-                    <linearGradient id="gapFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#F6A25C" stopOpacity=".42" /><stop offset="1" stopColor="#F6A25C" stopOpacity=".04" /></linearGradient>
+                    <linearGradient id="gapFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8A857B" stopOpacity=".42" /><stop offset="1" stopColor="#8A857B" stopOpacity=".04" /></linearGradient>
                   </defs>
                   {[33, 66, 99].map((y) => <line key={y} x1="0" x2="320" y1={y} y2={y} className="gl" />)}
                   <path data-svg="gap" d={chart0.gap} fill="url(#gapFill)" />
@@ -565,6 +565,7 @@ export default async function Home() {
         </div>
       </section>
 
+      <Island name="pauser" className="pauser" />
       {/* ============ CTA ============ */}
       <section className="cta-wrap" id="waitlist">
         <div className="wrap">

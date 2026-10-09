@@ -45,23 +45,23 @@ export function RoomSketch() {
     <svg viewBox="0 0 240 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <rect width="240" height="200" fill="#EDE6DB" />
       <path d="M0 0 62 46h116L240 0" fill="#F4EFE7" />
-      <path d="M0 200 62 150h116l62 50" fill="#E2D8C9" />
+      <path d="M0 200 62 150h116l62 50" fill="#DBD9D5" />
       <rect x="62" y="46" width="116" height="104" fill="#F1EBE2" />
-      <rect x="92" y="66" width="56" height="44" fill="#DCE6EE" stroke="#C9BBA6" />
-      <path d="M120 66v44M92 88h56" stroke="#C9BBA6" />
-      <path d="M0 0 62 46M240 0l-62 46M0 200l62-50M240 200l-62-50" stroke="#C9BBA6" />
-      <rect x="140" y="124" width="30" height="26" fill="#D9CDBB" />
-      <g fill="#fff" stroke="#EB7A2A" strokeWidth="1">
+      <rect x="92" y="66" width="56" height="44" fill="#DCE6EE" stroke="#BFBDB9" />
+      <path d="M120 66v44M92 88h56" stroke="#BFBDB9" />
+      <path d="M0 0 62 46M240 0l-62 46M0 200l62-50M240 200l-62-50" stroke="#BFBDB9" />
+      <rect x="140" y="124" width="30" height="26" fill="#D0CECA" />
+      <g fill="#fff" stroke="#16150F" strokeWidth="1">
         <rect x="76" y="26" width="58" height="14" rx="3" />
         <rect x="150" y="80" width="48" height="14" rx="3" />
         <rect x="88" y="160" width="58" height="14" rx="3" />
       </g>
-      <g style={{ fontFamily: "var(--font)" }} fontSize="7.5" fill="#B4561B" textAnchor="middle" fontWeight="600">
+      <g style={{ fontFamily: "var(--font)" }} fontSize="7.5" fill="#57534A" textAnchor="middle" fontWeight="600">
         <text x="105" y="36">CEILING 640</text>
         <text x="174" y="90">WINDOW</text>
         <text x="117" y="170">FLOOR 820</text>
       </g>
-      <path d="M62 140h116" stroke="#EB7A2A" strokeDasharray="3 3" />
+      <path d="M62 140h116" stroke="#16150F" strokeDasharray="3 3" />
     </svg>
   );
 }
@@ -80,7 +80,7 @@ export function WhoArt({ i }: { i: number }) {
   return WHO[i % WHO.length];
 }
 
-export function Sparkline({ points, color = "#EB7A2A" }: { points: number[]; color?: string }) {
+export function Sparkline({ points, color = "#16150F" }: { points: number[]; color?: string }) {
   const w = 100, h = 20, max = Math.max(...points), min = Math.min(...points);
   const xy = points.map((p, i) => [(i / (points.length - 1)) * w, h - 2 - ((p - min) / (max - min || 1)) * (h - 4)]);
   const d = xy.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");

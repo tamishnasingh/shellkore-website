@@ -122,7 +122,7 @@ const idle = () => new Promise<void>((r) => setTimeout(r, 0));
 /* ------------------------------------------------------------------ materials */
 /** World-space (triplanar) texturing with UDN-blended normal maps, so every box, whatever its size, gets a
  *  correctly scaled, seamless surface. */
-function triplanar(mat: THREE.MeshStandardMaterial, scale: [number, number], normalScale = 1) {
+function triplanar<T extends THREE.MeshStandardMaterial | THREE.MeshLambertMaterial>(mat: T, scale: [number, number], normalScale = 1) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTri = { value: new THREE.Vector2(scale[0], scale[1]) };
     sh.uniforms.uNs = { value: normalScale };
@@ -199,7 +199,7 @@ function labelTexture(text: string) {
   const c = document.createElement("canvas"); c.width = c.height = 128;
   const g = c.getContext("2d")!;
   g.fillStyle = "#FFFFFF"; g.beginPath(); g.arc(64, 64, 52, 0, Math.PI * 2); g.fill();
-  g.lineWidth = 7; g.strokeStyle = "#EB7A2A"; g.stroke();
+  g.lineWidth = 7; g.strokeStyle = "#16150F"; g.stroke();
   g.fillStyle = "#16150F"; g.font = "600 58px system-ui, -apple-system, Segoe UI, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
   g.fillText(text, 64, 68);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
@@ -217,6 +217,33 @@ function mullionTexture() {
   return t;
 }
 
+/* ------------------------------------------------------------------ quality: chosen before the first frame */
+const TIER_KEY = "sk3d-tier";
+let gpuName: string | null = null;
+/** The GPU's name, read once from a throwaway context (so the real one can be created with the right settings). */
+function probeGpu(): string {
+  if (gpuName !== null) return gpuName;
+  gpuName = "";
+  try {
+    const c = document.createElement("canvas");
+    const gl = (c.getContext("webgl2") || c.getContext("webgl")) as WebGLRenderingContext | null;
+    if (gl) {
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      gpuName = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || "");
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    }
+  } catch { /* unknown GPU: start at the default tier */ }
+  return gpuName;
+}
+/** Starting tier: phones and integrated / software GPUs start one step down; a tier this device needed before is remembered. */
+function startTier(mobile: boolean): number {
+  const gpu = probeGpu();
+  let t = mobile ? 1 : 0;
+  if (!/apple/i.test(gpu) && /intel|mali|adreno|powervr|swiftshader|llvmpipe|basic render|software|microsoft/i.test(gpu)) t = Math.max(t, 1);
+  try { const saved = Number(localStorage.getItem(TIER_KEY)); if (Number.isFinite(saved) && saved > 0) t = Math.max(t, Math.min(3, saved)); } catch { /* storage blocked */ }
+  return t;
+}
+
 /* ------------------------------------------------------------------ public API */
 export type Scene = {
   update: (P: number, px: number, py: number) => void;
@@ -229,6 +256,10 @@ export type Scene = {
   dispose: () => void;
   /** Lowest quality tier: shadows redraw only when the scroll settles. */
   setLiveShadows: (on: boolean) => void;
+  setTier: (n: number) => boolean;
+  readonly tier: number;
+  gpuMs: () => number;
+  resetGpu: () => void;
   readonly dpr: number;
 };
 
@@ -236,7 +267,17 @@ type Opts = { tex: Record<string, string>; mobile: boolean; reduce: boolean; mod
 
 export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promise<Scene> {
   // MSAA only where pixels are big enough to need it; on high-density screens the pixels do the smoothing
-  const hiDpi = (window.devicePixelRatio || 1) >= 1.75;
+  const devDpr = window.devicePixelRatio || 1;
+  const hiDpi = devDpr >= 1.75;
+  // quality tiers: resolution, and whether shadows redraw live while scrolling (else once the scroll settles)
+  const TIERS = [
+    { dpr: hiDpi ? 1.5 : Math.min(devDpr, 1.25), live: true },
+    { dpr: hiDpi ? 1.25 : 1, live: true },
+    { dpr: hiDpi ? 1 : 0.85, live: false },
+    { dpr: 0.75, live: false },
+  ];
+  let tier = startTier(opts.mobile);
+  let liveShadows = TIERS[tier].live;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: !hiDpi, alpha: false, powerPreference: "high-performance", stencil: false });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -282,19 +323,19 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   // no scene-wide environment: sampling it on every surface was the single biggest cost per frame.
   // Reflections are kept where they read (glass, metal); the rest is lit by the sun and a sky light.
-  const fill = new THREE.AmbientLight(0xfff6ea, 0.18); scene.add(fill);
-  const hemi = new THREE.HemisphereLight(0xfdfbf6, 0xb9a88f, 1.2);
+  const fill = new THREE.AmbientLight(0xf9f7f3, 0.18); scene.add(fill);
+  const hemi = new THREE.HemisphereLight(0xfdfbf8, 0xafada9, 1.2);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff4e6, 2.6);
+  const sun = new THREE.DirectionalLight(0xf7f5f1, 2.6);
   sun.castShadow = true;
-  const sm = opts.mobile ? 1024 : 1536;
+  const sm = opts.mobile || tier > 0 ? 1024 : 1536;
   sun.shadow.mapSize.set(sm, sm);
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 10, far: 220 });
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = opts.mobile ? 1.6 : 2.4;
   scene.add(sun, sun.target);
 
-  const DAY = { top: new THREE.Color("#D9E4EA"), hor: new THREE.Color("#F4EFE7"), bot: new THREE.Color("#EDE6DA") };
-  const DUSK = { top: new THREE.Color("#C3C6D8"), hor: new THREE.Color("#F4DCC2"), bot: new THREE.Color("#E8DCCB") };
+  const DAY = { top: new THREE.Color("#DCE3E8"), hor: new THREE.Color("#F3F1EC"), bot: new THREE.Color("#ECE9E3") };
+  const DUSK = { top: new THREE.Color("#CDD2DB"), hor: new THREE.Color("#ECE9E4"), bot: new THREE.Color("#E6E3DD") };
   const sky = new THREE.Mesh(
     new THREE.SphereGeometry(600, 32, 16),
     new THREE.ShaderMaterial({
@@ -318,27 +359,27 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   /* ---------- materials (phones skip the world-mapped normal maps: same look at arm's length, far less work) */
   const LITE = opts.mobile;
   const M = {
-    concrete: triplanar(new THREE.MeshStandardMaterial({ map: concrete, normalMap: LITE ? null : concreteN, roughness: 0.9, color: 0xffffff }), [1 / 3, 1 / 3], 0.9),
-    plaster: triplanar(new THREE.MeshStandardMaterial({ map: concrete, normalMap: LITE ? null : concreteN, roughness: 0.85, color: 0xfbf8f2 }), [1 / 2.4, 1 / 2.4], 0.5),
-    brick: triplanar(new THREE.MeshStandardMaterial({ map: brick, normalMap: LITE ? null : brickN, roughness: 0.92 }), [1 / 0.9, 1 / 0.6], 1.2),
-    ply: triplanar(new THREE.MeshStandardMaterial({ map: ply, roughness: 0.8 }), [1 / 1.6, 1 / 1.6]),
+    concrete: triplanar(new THREE.MeshLambertMaterial({ map: concrete, normalMap: LITE ? undefined : concreteN, color: 0xffffff }), [1 / 3, 1 / 3], 0.9),
+    plaster: triplanar(new THREE.MeshLambertMaterial({ map: concrete, normalMap: LITE ? undefined : concreteN, color: 0xfbf8f2 }), [1 / 2.4, 1 / 2.4], 0.5),
+    brick: triplanar(new THREE.MeshLambertMaterial({ map: brick, normalMap: LITE ? undefined : brickN }), [1 / 0.9, 1 / 0.6], 1.2),
+    ply: triplanar(new THREE.MeshLambertMaterial({ map: ply }), [1 / 1.6, 1 / 1.6]),
     steel: new THREE.MeshStandardMaterial({ color: 0x9aa3a8, metalness: 0.65, roughness: 0.38 }),
-    rebar: new THREE.MeshStandardMaterial({ color: 0x7b4b33, metalness: 0.55, roughness: 0.55 }),
-    brand: new THREE.MeshStandardMaterial({ color: 0xeb7a2a, metalness: 0.35, roughness: 0.42 }),
-    white: new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.55, metalness: 0.05 }),
-    dark: new THREE.MeshStandardMaterial({ color: 0x24262a, roughness: 0.7 }),
+    rebar: new THREE.MeshLambertMaterial({ color: 0x4b4844 }),
+    brand: new THREE.MeshStandardMaterial({ color: 0x2c2b27, metalness: 0.4, roughness: 0.45 }),
+    white: new THREE.MeshLambertMaterial({ color: 0xf3f1ec }),
+    dark: new THREE.MeshLambertMaterial({ color: 0x24262a }),
     tint: new THREE.MeshStandardMaterial({ color: 0x2f3a42, metalness: 0.8, roughness: 0.12 }),
-    bag: new THREE.MeshStandardMaterial({ color: 0xdcd5c6, roughness: 0.95 }),
+    bag: new THREE.MeshLambertMaterial({ color: 0xd7d5d1 }),
     solar: new THREE.MeshStandardMaterial({ color: 0x233246, metalness: 0.6, roughness: 0.25 }),
-    leaf: new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 }),
-    bark: new THREE.MeshStandardMaterial({ color: 0x6b5646, roughness: 0.9 }),
-    block: new THREE.MeshStandardMaterial({ color: 0xf1ede6, roughness: 0.95 }),
+    leaf: new THREE.MeshLambertMaterial({ color: 0xffffff }),
+    bark: new THREE.MeshLambertMaterial({ color: 0x5c5a56 }),
+    block: new THREE.MeshLambertMaterial({ color: 0xf1ede6 }),
     rail: new THREE.MeshStandardMaterial({ color: 0xcfe2ea, metalness: 0.2, roughness: 0.05, transparent: true, opacity: 0.32, depthWrite: false }),
-    lamp: new THREE.MeshStandardMaterial({ color: 0xfff4e0, emissive: 0xffb36b, emissiveIntensity: 0 }),
+    lamp: new THREE.MeshLambertMaterial({ color: 0xf7f5f1, emissive: 0xf4f2ee, emissiveIntensity: 0 }),
   };
   const HERO = opts.mode === "hero";
   const solidClip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1e6);
-  const glassU = { uDusk: { value: 0 }, uLitCol: { value: new THREE.Color(1.0, 0.52, 0.2).multiplyScalar(0.95) } };
+  const glassU = { uDusk: { value: 0 }, uLitCol: { value: new THREE.Color(1.0, 0.9, 0.74).multiplyScalar(0.85) } };
   const glass = litGlass(new THREE.MeshStandardMaterial({ color: 0x9fbccb, metalness: 0.92, roughness: 0.07, map: mullionTexture(), envMapIntensity: 1.6 }), glassU);
   const glassPlain = litGlass(new THREE.MeshStandardMaterial({ color: 0x8eaab8, metalness: 0.9, roughness: 0.08, envMapIntensity: 1.5 }), glassU);
   for (const m of [glass, glassPlain, M.rail, M.tint, M.solar, M.steel, M.brand]) { m.envMap = env; m.envMapIntensity = m === glass || m === glassPlain ? 1.6 : 0.7; }
@@ -349,21 +390,21 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   /* ---------- ground: soft paper-coloured world, the plot, road and pavement */
   const world = new THREE.Group(); scene.add(world);
-  const groundMat = new THREE.MeshStandardMaterial({ color: 0xe8e1d5, roughness: 1 });
+  const groundMat = new THREE.MeshLambertMaterial({ color: 0xe8e4dc });
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), groundMat);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true; world.add(ground);
 
   const PLOT = { x0: -28, x1: 28, z0: -20, z1: 24 };
   const plotGeo = new THREE.PlaneGeometry(PLOT.x1 - PLOT.x0, PLOT.z1 - PLOT.z0);
-  const plot = new THREE.Mesh(plotGeo, new THREE.MeshStandardMaterial({ map: soil, normalMap: soilN, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2) }));
+  const plot = new THREE.Mesh(plotGeo, new THREE.MeshLambertMaterial({ map: soil, normalMap: soilN, normalScale: new THREE.Vector2(1.2, 1.2) }));
   plot.rotation.x = -Math.PI / 2; plot.position.set(0, 0, (PLOT.z0 + PLOT.z1) / 2); plot.receiveShadow = true; world.add(plot);
 
   // excavated pad (darker, slightly lower-looking earth) under the footprint
   const digMap = soil.clone(); digMap.repeat.set(4.5, 3.2); const digN = soilN.clone(); digN.repeat.set(4.5, 3.2);
-  const dig = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), new THREE.MeshStandardMaterial({ map: digMap, normalMap: digN, color: 0x9a8370, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1 }));
+  const dig = new THREE.Mesh(new THREE.PlaneGeometry(28, 20), new THREE.MeshLambertMaterial({ map: digMap, normalMap: digN, color: 0x898783, polygonOffset: true, polygonOffsetFactor: -1 }));
   dig.rotation.x = -Math.PI / 2; dig.position.set(0, 0.005, 0.5); dig.receiveShadow = true; world.add(dig);
 
-  const asphaltMat = new THREE.MeshStandardMaterial({ map: asphalt, normalMap: asphaltN, roughness: 0.95 });
+  const asphaltMat = new THREE.MeshLambertMaterial({ map: asphalt, normalMap: asphaltN });
   asphalt.repeat.set(240, 2); asphaltN.repeat.set(240, 2);
   const road = new THREE.Mesh(new THREE.PlaneGeometry(1200, 10), asphaltMat);
   road.rotation.x = -Math.PI / 2; road.position.set(0, 0.01, 31); road.receiveShadow = true; world.add(road);
@@ -432,8 +473,8 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
       L.col.add({ p: [x, y, z], s: [0.55, h, 0.55], t: [t, t + 0.08], mode: "grow", c: [0x8a857d, 0xffffff, t + 0.08, t + 0.3] });
     }
     L.core.add({ p: [0, y, 0], s: [5.2, h, 4.2], t: [t - 0.02, t + 0.08], mode: "grow", c: [0x948f86, 0xffffff, t + 0.08, t + 0.3] });
-    L.slab.add({ p: [0, y + h, 0], s: [23.6, SLAB, 15.6], t: [t + 0.07, t + 0.15], mode: "drop", c: [0xc79257, 0xffffff, t + 0.12, t + 0.24] });
-    if (i < FLOORS - 1) L.slab.add({ p: [0, y + FH - 0.22, 8.6], s: [20.4, 0.22, 1.9], t: [t + 0.1, t + 0.17], mode: "drop", c: [0xc79257, 0xffffff, t + 0.14, t + 0.26] });
+    L.slab.add({ p: [0, y + h, 0], s: [23.6, SLAB, 15.6], t: [t + 0.07, t + 0.15], mode: "drop", c: [0x9c978e, 0xffffff, t + 0.12, t + 0.24] });
+    if (i < FLOORS - 1) L.slab.add({ p: [0, y + FH - 0.22, 8.6], s: [20.4, 0.22, 1.9], t: [t + 0.1, t + 0.17], mode: "drop", c: [0x9c978e, 0xffffff, t + 0.14, t + 0.26] });
   }
   // roof: parapet, lift room, tank, solar
   const tr = T_STRUCT + FLOORS * DT;
@@ -526,7 +567,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const t0 = 2.42 + k++ * 0.018, out: [number, number] = [3.25 + k * 0.08, 3.33 + k * 0.08];
     L.pallet.add({ p: [px, 0, pz], s: [1.3, 0.14, 1.1], t: [t0, t0 + 0.06], out: [6.02, 6.1], mode: "pop" });
     for (let a = 0; a < 3; a++) for (let bx = 0; bx < 2; bx++) for (let bz = 0; bz < 2; bz++)
-      L.bag.add({ p: [px - 0.3 + bx * 0.6, 0.14 + a * 0.16, pz - 0.25 + bz * 0.5], s: [0.58, 0.15, 0.48], t: [t0 + 0.02, t0 + 0.08], out, mode: "pop", col: [0xdcd5c6, 0xd2cab8, 0xe3ddd0][(a + bx + bz) % 3] });
+      L.bag.add({ p: [px - 0.3 + bx * 0.6, 0.14 + a * 0.16, pz - 0.25 + bz * 0.5], s: [0.58, 0.15, 0.48], t: [t0 + 0.02, t0 + 0.08], out, mode: "pop", col: [0xd7d5d1, 0xcdcbc7, 0xdfddd9][(a + bx + bz) % 3] });
   }
   // rebar bundles
   for (let bnd = 0; bnd < 3; bnd++) for (let rod = 0; rod < 9; rod++) {
@@ -578,11 +619,11 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   STATIC.forEach((l) => l.update(0));
 
   /* soft contact shadow under the tower */
-  const blobMesh = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshBasicMaterial({ map: blob, transparent: true, opacity: 0, depthWrite: false, color: 0x2a2017 }));
+  const blobMesh = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshBasicMaterial({ map: blob, transparent: true, opacity: 0, depthWrite: false, color: 0x24221e }));
   blobMesh.rotation.x = -Math.PI / 2; blobMesh.position.set(0, 0.03, 0.5); world.add(blobMesh);
 
   /* --- grass lawns appear at handover */
-  const lawnMat = new THREE.MeshStandardMaterial({ map: grass, normalMap: grassN, color: 0xf2f0dc, roughness: 1, transparent: true, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2 });
+  const lawnMat = new THREE.MeshLambertMaterial({ map: grass, normalMap: grassN, color: 0xf2f0dc, transparent: true, opacity: 0, polygonOffset: true, polygonOffsetFactor: -2 });
   const lawns = new THREE.Group();
   for (const [x0, x1, z0, z1] of [[-28, -12.6, -20, 24], [12.6, 28, -20, 24], [-12.6, 12.6, -20, -9.2], [-12.6, 2, 10.2, 24], [10.4, 12.6, 10.2, 24]]) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, z1 - z0), lawnMat);
@@ -593,7 +634,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
 
   /* --- phase 0–1: the drawing on the ground, axis labels, the digital twin */
   // set-out: painted tapes along every grid line and the footprint, rolled out one after another
-  const tapeMat = new THREE.MeshBasicMaterial({ color: 0xeb7a2a, transparent: true, opacity: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
+  const tapeMat = new THREE.MeshBasicMaterial({ color: 0xf6f4ef, transparent: true, opacity: 1, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 });
   const tapeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2).translate(0.5, 0, 0);
   const tapes: { m: THREE.Mesh; len: number; t0: number }[] = [];
   const tape = (x0: number, z0: number, x1: number, z1: number, w: number, t0: number) => {
@@ -612,8 +653,8 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   labels.forEach((l) => world.add(l));
 
   const ghostClip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
-  const ghostLineMat = new THREE.LineBasicMaterial({ color: 0xeb7a2a, transparent: true, opacity: 0, clippingPlanes: [ghostClip], depthWrite: false });
-  const ghostFaceMat = new THREE.MeshBasicMaterial({ color: 0xeb7a2a, transparent: true, opacity: 0, depthWrite: false, clippingPlanes: [ghostClip], side: THREE.DoubleSide });
+  const ghostLineMat = new THREE.LineBasicMaterial({ color: 0x16150f, transparent: true, opacity: 0, clippingPlanes: [ghostClip], depthWrite: false });
+  const ghostFaceMat = new THREE.MeshBasicMaterial({ color: 0x16150f, transparent: true, opacity: 0, depthWrite: false, clippingPlanes: [ghostClip], side: THREE.DoubleSide });
   const gv: number[] = [];
   const rect = (y: number, x0: number, x1: number, z0: number, z1: number) => { const p = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]]; for (let i = 0; i < 4; i++) { const a = p[i], b = p[(i + 1) % 4]; gv.push(a[0], y, a[1], b[0], y, b[1]); } };
   for (let i = 0; i <= FLOORS; i++) { rect(lvl(i), -11.8, 11.8, -7.8, 7.8); if (i > 0 && i < FLOORS) rect(lvl(i), -10.2, 10.2, 7.8, 9.55); }
@@ -626,7 +667,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   const gface = new THREE.Mesh(new THREE.BoxGeometry(23.6, ROOF, 15.6).translate(0, ROOF / 2, 0), ghostFaceMat);
   ghost.add(gface);
   world.add(ghost);
-  const scan = new THREE.Mesh(new THREE.PlaneGeometry(30, 22), new THREE.MeshBasicMaterial({ color: 0xffa25a, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+  const scan = new THREE.Mesh(new THREE.PlaneGeometry(30, 22), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
   scan.rotation.x = -Math.PI / 2; world.add(scan);
 
   /* --- vehicles: a flatbed that delivers, a transit mixer that pours */
@@ -634,7 +675,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   function truck(mixer: boolean) {
     const g = new THREE.Group(); const wheels: THREE.Mesh[] = [];
     const add = (geo: THREE.BufferGeometry, mat: THREE.Material, x: number, y: number, z: number) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); g.add(m); return m; };
-    const under = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.4), new THREE.MeshBasicMaterial({ map: blob, transparent: true, opacity: 0.55, depthWrite: false, color: 0x2a2017 }));
+    const under = new THREE.Mesh(new THREE.PlaneGeometry(11, 4.4), new THREE.MeshBasicMaterial({ map: blob, transparent: true, opacity: 0.55, depthWrite: false, color: 0x24221e }));
     under.rotation.x = -Math.PI / 2; under.position.y = 0.03; g.add(under);
     add(new THREE.BoxGeometry(8.6, 0.35, 2.3), M.dark, 0, 0.75, 0);
     add(new THREE.BoxGeometry(2.1, 2.1, 2.4), M.white, 3.35, 1.95, 0);
@@ -712,11 +753,11 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     renderer.render(scene, camera); // also builds the shadow-pass programs
     hidden.forEach((o) => (o.visible = false));
   }
-  let W = 2, H = 2, dpr = 1;
+  let W = 2, H = 2, dpr = TIERS[tier].dpr;
   const sunDay = new THREE.Vector3(0.62, 0.86, 0.5).normalize();
   const sunDusk = new THREE.Vector3(-0.7, 0.42, 0.62).normalize();
   const sunDir = new THREE.Vector3();
-  const colDay = new THREE.Color(0xfff2e2), colDusk = new THREE.Color(0xffc796);
+  const colDay = new THREE.Color(0xf9f7f3), colDusk = new THREE.Color(0xf4f2ee);
   const camKeys = [
     // r, azimuth (deg, 0 = from the road), elevation (deg), target y
     [92, 30, 50, 0],
@@ -761,8 +802,8 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const scanH = lerp(-0.5, ROOF + 4, ss(1.05, 1.75, P));
     ghostClip.constant = scanH;
     const gOn = ss(1.02, 1.12, P) * (1 - ss(2.3, 3.9, P) * 0.8) * (1 - ss(3.9, 4.5, P));
-    ghostLineMat.opacity = 0.85 * gOn; ghostFaceMat.opacity = 0.07 * gOn; ghost.visible = gOn > 0.01;
-    scan.position.y = scanH; (scan.material as THREE.MeshBasicMaterial).opacity = 0.32 * ss(1.02, 1.1, P) * (1 - ss(1.68, 1.8, P)); scan.visible = P > 1.0 && P < 1.82;
+    ghostLineMat.opacity = 0.6 * gOn; ghostFaceMat.opacity = 0.07 * gOn; ghost.visible = gOn > 0.01;
+    scan.position.y = scanH; (scan.material as THREE.MeshBasicMaterial).opacity = 0.42 * ss(1.02, 1.1, P) * (1 - ss(1.68, 1.8, P)); scan.visible = P > 1.0 && P < 1.82;
 
     // site
     dig.visible = P > 1.98; dig.scale.set(ss(1.98, 2.12, P) || 0.001, ss(1.98, 2.12, P) || 0.001, 1);
@@ -812,7 +853,7 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const su = (sky.material as THREE.ShaderMaterial).uniforms;
     su.uTop.value.lerpColors(DAY.top, DUSK.top, dusk); su.uHor.value.lerpColors(DAY.hor, DUSK.hor, dusk); su.uBot.value.lerpColors(DAY.bot, DUSK.bot, dusk);
     (scene.fog as THREE.Fog).color.copy(su.uHor.value);
-    groundMat.color.set(0xe8e1d5).lerp(new THREE.Color(0xe4d6c6), dusk);
+    groundMat.color.set(0xe8e4dc).lerp(new THREE.Color(0xe3e0da), dusk);
 
     // camera on its path, with a little lean toward the pointer
     const [r, az, el, ty] = camAt(P);
@@ -825,18 +866,39 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const fog = scene.fog as THREE.Fog; fog.near = rr + 45; fog.far = rr + 360;
     sky.position.copy(camera.position);
   }
-  let shadowDirty = true, liveShadows = true;
-  /** Render. Shadows are redrawn only when a shadow-casting part has moved; on the lowest quality tier only once
-   *  the scroll settles. */
+  let shadowDirty = true;
+  // GPU time per frame, measured with timer queries where the browser offers them (Chrome desktop). This is what
+  // the quality tiers are tuned on: it shows real headroom, which frame intervals on a 60 Hz screen can't.
+  const gl = renderer.getContext() as WebGL2RenderingContext;
+  type TQ = { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number };
+  const tq = (typeof WebGL2RenderingContext !== "undefined" && gl instanceof WebGL2RenderingContext ? gl.getExtension("EXT_disjoint_timer_query_webgl2") : null) as TQ | null;
+  const pending: WebGLQuery[] = [], gpuTimes: number[] = [];
+  function poll() {
+    if (!tq) return;
+    while (pending.length) {
+      const q = pending[0];
+      if (!gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE)) break;
+      const disjoint = gl.getParameter(tq.GPU_DISJOINT_EXT);
+      const ns = gl.getQueryParameter(q, gl.QUERY_RESULT) as number;
+      pending.shift(); gl.deleteQuery(q);
+      if (!disjoint) { gpuTimes.push(ns / 1e6); if (gpuTimes.length > 30) gpuTimes.shift(); }
+    }
+  }
+  /** Render. Shadows are redrawn only when a shadow-casting part has moved; on the lighter tiers only once the
+   *  scroll settles. */
   function draw(settle = false) {
     if (shadowDirty && (liveShadows || settle)) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+    let q: WebGLQuery | null = null;
+    if (tq && pending.length < 4) { q = gl.createQuery(); if (q) gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
     renderer.render(scene, camera);
+    if (q && tq) { gl.endQuery(tq.TIME_ELAPSED_EXT); pending.push(q); }
+    poll();
   }
 
   /* ---------- hero: the twin above the scan line, the built tower below it */
   const scanRing = new THREE.LineLoop(
     new THREE.BufferGeometry().setFromPoints([v(-12.6, 0, -8.6), v(12.6, 0, -8.6), v(12.6, 0, 10.2), v(-12.6, 0, 10.2)]),
-    new THREE.LineBasicMaterial({ color: 0xffb070, transparent: true, opacity: 0.95 }),
+    new THREE.LineBasicMaterial({ color: 0x16150f, transparent: true, opacity: 0.9 }),
   );
   scanRing.visible = false; world.add(scanRing);
   const heroCam = (t: number, px: number, py: number) => {
@@ -857,8 +919,8 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
     const h = lerp(PL + 4.5, ROOF + 4.2, k);
     solidClip.constant = h;
     ghostClip.normal.set(0, 1, 0); ghostClip.constant = -h;
-    ghost.visible = true; ghostLineMat.opacity = 0.9; ghostFaceMat.opacity = 0.06;
-    scan.visible = true; scan.position.y = h; (scan.material as THREE.MeshBasicMaterial).opacity = 0.3;
+    ghost.visible = true; ghostLineMat.opacity = 0.62; ghostFaceMat.opacity = 0.04;
+    scan.visible = true; scan.position.y = h; (scan.material as THREE.MeshBasicMaterial).opacity = 0.42;
     scanRing.visible = true; scanRing.position.y = h + 0.02;
     heroCam(t, px, py);
     heroPins[0].y = h;
@@ -868,9 +930,11 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   }
 
   function resize(w: number, h: number, d: number) {
-    W = Math.max(2, w); H = Math.max(2, h); dpr = d;
-    renderer.setPixelRatio(d);
-    renderer.setSize(W, H, false);
+    const nw = Math.max(2, w), nh = Math.max(2, h);
+    const same = nw === W && nh === H && d === dpr;
+    W = nw; H = nh; dpr = d;
+    // one drawing-buffer reallocation (setPixelRatio + setSize would do two), and none when nothing changed
+    if (!same) renderer.setDrawingBufferSize(W, H, d);
     camera.aspect = W / H;
     camera.fov = W / H < 1 ? 42 : 34;
     // on wide screens the words sit on the left, so the tower is framed slightly right of centre
@@ -887,6 +951,23 @@ export async function createScene(canvas: HTMLCanvasElement, opts: Opts): Promis
   return {
     hero,
     setLiveShadows(on: boolean) { liveShadows = on; },
+    /** Move to another quality tier (0 best … 3 lightest). Remembered for this device's next visit. */
+    setTier(n: number) {
+      const next = Math.max(0, Math.min(TIERS.length - 1, n));
+      if (next === tier) return false;
+      tier = next; liveShadows = TIERS[tier].live;
+      try { localStorage.setItem(TIER_KEY, String(tier)); } catch { /* storage blocked */ }
+      resize(W, H, TIERS[tier].dpr);
+      shadowDirty = true;
+      return true;
+    },
+    get tier() { return tier; },
+    /** Median GPU milliseconds over the last frames, or -1 where the browser can't measure it. */
+    gpuMs() {
+      if (!tq || gpuTimes.length < 8) return -1;
+      const s2 = gpuTimes.slice().sort((a, b) => a - b); return s2[s2.length >> 1];
+    },
+    resetGpu() { gpuTimes.length = 0; },
     update,
     render: (settle?: boolean) => draw(settle),
     resize,

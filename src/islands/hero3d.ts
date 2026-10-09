@@ -19,13 +19,19 @@ export function mount(root: HTMLElement): () => void {
 
   let scene: Scene | null = null, raf = 0, dead = false, visible = true, w = 0, h = 0;
   let px = 0, py = 0, tpx = 0, tpy = 0, last = 0, t = 4.2;
-  const devDpr = devicePixelRatio || 1;
-  let dpr = devDpr >= 1.75 ? 1.5 : Math.min(devDpr, 1.25);
   const times: number[] = [];
+  let lastAdapt = 0, lastDraw = 0, steppedDown = false, lastScroll = -1e9, skip = false;
+  const onScroll = () => { lastScroll = performance.now(); };
+  addEventListener("scroll", onScroll, { passive: true });
 
   const frame = (now: number) => {
     raf = 0;
     if (dead || !scene) return;
+    // lightest tier: draw at 30 fps so the hero never competes with page scrolling
+    if (scene.tier >= 3 && now - lastDraw < 30) { if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame); return; }
+    // while the page is scrolling, draw every other frame: the browser's own scrolling gets the GPU first
+    if (now - lastScroll < 160 && (skip = !skip)) { if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame); return; }
+    lastDraw = now;
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016;
     if (last) { times.push(now - last); if (times.length > 45) times.shift(); }
     last = now;
@@ -42,10 +48,14 @@ export function mount(root: HTMLElement): () => void {
       el.classList.add("show");
     });
     if (levelEl) levelEl.textContent = r.level >= 9 ? "Roof" : `Level ${r.level}`;
-    // keep the frame rate up: trim resolution on slower devices
-    if (times.length >= 45 && dpr > (mobile ? 1 : 0.75)) {
-      const avg = times.reduce((a, b) => a + b, 0) / times.length;
-      if (avg > 19) { dpr = Math.max(mobile ? 1 : 0.75, dpr - 0.25); times.length = 0; scene.resize(w, h, dpr); }
+    // quality: step down when the GPU is over budget, back up when there's lots of headroom
+    if (now - lastAdapt > 1500) {
+      const gpu = scene.gpuMs();
+      let slow = false, fast = false;
+      if (gpu >= 0) { slow = gpu > 10.5; fast = gpu < 4.5; }
+      else if (times.length >= 30) { const s2 = times.slice().sort((a, b) => a - b); slow = s2[s2.length >> 1] > 19; }
+      if (slow && scene.setTier(scene.tier + 1)) { steppedDown = true; lastAdapt = now; times.length = 0; scene.resetGpu(); }
+      else if (fast && !steppedDown && scene.tier > 0 && scene.setTier(scene.tier - 1)) { lastAdapt = now; scene.resetGpu(); }
     }
     if (visible && !document.hidden && !reduce) raf = requestAnimationFrame(frame);
     else last = 0;
@@ -55,7 +65,7 @@ export function mount(root: HTMLElement): () => void {
   const size = () => {
     const b = canvas.getBoundingClientRect();
     w = Math.round(b.width); h = Math.round(b.height);
-    if (scene) { scene.resize(w, h, dpr); kick(); }
+    if (scene) { scene.resize(w, h, scene.dpr); kick(); }
   };
   const ro = new ResizeObserver(size); ro.observe(canvas);
 
@@ -86,7 +96,7 @@ export function mount(root: HTMLElement): () => void {
 
   return () => {
     dead = true; cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
-    document.removeEventListener("visibilitychange", onVis); removeEventListener("pointermove", onMove);
+    document.removeEventListener("visibilitychange", onVis); removeEventListener("pointermove", onMove); removeEventListener("scroll", onScroll);
     scene?.dispose();
   };
 }

@@ -15,6 +15,7 @@ import { mount as mark3d } from "../src/islands/mark3d";
 import { mount as roadmap } from "../src/islands/roadmap";
 import { mount as hero3d } from "../src/islands/hero3d";
 import { mount as toolkit } from "../src/islands/toolkit";
+import { mount as pauser } from "../src/islands/pauser";
 import { mount as intro } from "../src/islands/intro";
 
 const $ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document) => r.querySelector<T>(s);
@@ -22,7 +23,7 @@ const $$ = <T extends Element = HTMLElement>(s: string, r: ParentNode = document
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // islands
-const ISLANDS: Record<string, (el: HTMLElement) => unknown> = { reveal, stage, orbit, how, tour, merge, calc, city, sites, mark3d, roadmap, hero3d, toolkit, intro };
+const ISLANDS: Record<string, (el: HTMLElement) => unknown> = { reveal, stage, orbit, how, tour, merge, calc, city, sites, mark3d, roadmap, hero3d, toolkit, pauser, intro };
 $$<HTMLElement>("[data-island]").forEach((el) => ISLANDS[el.dataset.island!]?.(el));
 
 // nav: scrolled state, progress bar, mobile menu, section highlight
